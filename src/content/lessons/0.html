@@ -1,0 +1,75 @@
+<div class="callout concept">
+        <div class="cl-title">The one sentence to hold</div>
+        <strong>.NET is the platform. C# is a language that targets it.</strong> .NET is not "a C# framework" —
+        it is the runtime, the standard library and the tooling, and C# is the main (but not only) language that compiles to it.
+      </div>
+<h2 id="h-0-0">1. The Two Halves</h2>
+<p>Almost every beginner confusion about .NET comes from collapsing two separate things into one word. Keep them apart:</p>
+<table>
+        <tbody><tr><th>Thing</th><th>What it is</th></tr>
+        <tr><td><strong>C#</strong></td><td>A language. Syntax, type system, rules. It compiles to an intermediate form, not to machine code</td></tr>
+        <tr><td><strong>.NET</strong></td><td>The platform the compiled output runs on: the runtime (CLR), the standard library, the SDK and the package ecosystem</td></tr>
+      </tbody></table>
+<p>The proof that they are separable: <strong>F#</strong> and <strong>Visual Basic .NET</strong> are different languages that compile to the same intermediate form and run on the same runtime, using the same libraries. If .NET were "a C# framework" that would be impossible.</p>
+<h2 id="h-0-1">2. What Happens When You Run C#</h2>
+<p>Two compilation steps, not one. This explains most of .NET's behaviour, including why it is cross-platform and why startup has a warm-up cost.</p>
+<pre><code class="language-text">Program.cs  ——roslyn——▸  IL (in a .dll)  ——CLR/JIT——▸  machine code, running
+ (source)                     (portable bytecode)              (specific to this CPU and OS)</code></pre>
+<ul>
+        <li><strong>Roslyn</strong> is the C# compiler. It produces <strong>IL</strong> (Intermediate Language) — a portable instruction set, not x86 or ARM.</li>
+        <li><strong>The CLR</strong> (Common Language Runtime) loads that IL and <strong>JIT-compiles</strong> it to native code the first time each method runs, then caches the result.</li>
+        <li>The CLR also provides <strong>garbage collection</strong>, type safety, exception handling and threading.</li>
+      </ul>
+<p>Because IL is portable, the same <code>.dll</code> runs on Windows, Linux and macOS. Because JIT happens at runtime, the compiler knows exactly which CPU it is targeting and can optimise for it — which is why long-running .NET services are fast, and why the very first request is slower than the thousandth.</p>
+<div class="callout">
+        <div class="cl-title">Coming from Java?</div>
+        The mapping is almost exact. CLR ↔ JVM. IL ↔ bytecode. C# ↔ Java the language.
+        Base Class Library ↔ the JDK standard library. NuGet ↔ Maven Central. The <code>dotnet</code> CLI ↔ JDK plus Maven in one tool.
+        ASP.NET Core ↔ Spring Boot. Entity Framework Core ↔ Hibernate/JPA.
+      </div>
+<h2 id="h-0-2">3. The Naming Mess, Explained Once</h2>
+<p>Three different naming schemes for one lineage. This is the single most confusing thing about the ecosystem, and it is purely historical:</p>
+<table>
+        <tbody><tr><th>Name</th><th>Years</th><th>What you need to know</th></tr>
+        <tr><td><strong>.NET Framework</strong> 1.0–4.8</td><td>2002–2019</td><td>Windows only. Legacy — still maintained, still running in enterprises, but no new versions. <em>This</em> is the one with "Framework" in the name</td></tr>
+        <tr><td><strong>.NET Core</strong> 1.0–3.1</td><td>2016–2019</td><td>A cross-platform rewrite. Open source, much faster. Superseded</td></tr>
+        <tr><td><strong>.NET</strong> 5, 6, 7, 8, 9, 10…</td><td>2020–</td><td>Both suffixes dropped. One product, annual releases, even numbers are LTS. <strong>This is what you use today</strong></td></tr>
+      </tbody></table>
+<p>They skipped .NET 4 to avoid confusion with .NET Framework 4.x — which tells you how aware they were of the problem.</p>
+<div class="callout warn">
+        <div class="cl-title">Why this matters practically</div>
+        When you search for help, results span all three eras and the APIs differ. A 2015 Stack Overflow answer about <code>HttpContext.Current</code>
+        or <code>Global.asax</code> is .NET Framework and will not apply. <strong>Check the date and the version on anything you read.</strong>
+      </div>
+<h2 id="h-0-3">4. What Is Actually A Framework</h2>
+<p>These sit <em>on top of</em> .NET. When someone says "a C# framework", one of these is what they mean:</p>
+<table>
+        <tbody><tr><th>Framework</th><th>For</th><th>Java equivalent</th></tr>
+        <tr><td><strong>ASP.NET Core</strong></td><td>Web APIs, web apps, real-time</td><td>Spring Boot</td></tr>
+        <tr><td><strong>Entity Framework Core</strong></td><td>Database access (ORM)</td><td>Hibernate / JPA</td></tr>
+        <tr><td><strong>Blazor</strong></td><td>Web UI in C# instead of JavaScript</td><td>—</td></tr>
+        <tr><td><strong>MAUI</strong></td><td>Cross-platform mobile and desktop</td><td>—</td></tr>
+        <tr><td><strong>WPF / WinForms</strong></td><td>Windows desktop</td><td>Swing / JavaFX</td></tr>
+        <tr><td><strong>xUnit / NUnit</strong></td><td>Testing</td><td>JUnit</td></tr>
+      </tbody></table>
+<h2 id="h-0-4">5. Where C# Actually Gets Used</h2>
+<ul>
+        <li><strong>Enterprise back ends</strong> — banking, insurance, logistics, government. Often alongside or instead of Java, and for the same reasons: stability, tooling, long support windows, a large hiring pool.</li>
+        <li><strong>Game development</strong> — Unity's scripting language is C#, which is a large share of all C# written.</li>
+        <li><strong>Windows and Microsoft-stack shops</strong> — anywhere Azure, SQL Server and Active Directory are already in place.</li>
+        <li><strong>Cloud services</strong> — ASP.NET Core is genuinely one of the fastest mainstream web stacks by throughput.</li>
+      </ul>
+<h2 id="h-0-5">6. How To Use This Course</h2>
+<p>The structure is deliberate, and it is built around one finding: <strong>re-reading feels productive and barely works. Retrieval does.</strong></p>
+<ul>
+        <li><strong>Each page opens with a recall prompt.</strong> Answer it from memory before reading. Getting it wrong is part of the mechanism.</li>
+        <li><strong>The right panel has three tabs.</strong> Quiz tests recognition, Challenge tests production, Interview tests explanation. Explanation is the hardest and the most revealing.</li>
+        <li><strong>Each page ends with a self-check.</strong> If you cannot explain an item without notes, you have not learned it yet — regardless of how familiar it felt while reading.</li>
+        <li><strong>Mark complete only after the self-check.</strong> That is what puts a section into the spaced-repetition schedule.</li>
+        <li><strong>The Review Center resurfaces material</strong> after 1 day, then 3, 7, 21, 60. Each successful recall widens the gap; a failure resets it to one day.</li>
+      </ul>
+<div class="callout tip">
+        <div class="cl-title">Type the code out</div>
+        Every example is short enough to type and run. Copying teaches nothing;
+        typing surfaces the small things you did not actually know — which is the entire point.
+      </div>

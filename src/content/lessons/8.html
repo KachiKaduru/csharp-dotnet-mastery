@@ -1,0 +1,125 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What is the difference between <code>throw</code> and <code>throw ex</code>? And what does <code>using</code> guarantee?</div>
+<div class="callout concept">
+        <div class="cl-title">The one idea</div>
+        <strong>Async does not make anything faster. It frees the thread while you wait.</strong>
+        A web server has a limited pool of threads. If each request blocks a thread for 200ms waiting on a database,
+        your throughput ceiling is set by the pool size, not by your code. Async lets that thread serve other requests while
+        the database works, so the same hardware handles far more concurrent requests.
+      </div>
+<h2 id="h-8-0">1. The Problem It Solves</h2>
+<div class="code-label">blocking vs non-blocking</div>
+<pre><code class="language-csharp">// blocking: this thread sits idle for 200ms, doing nothing, serving nobody
+public decimal GetBalance(string account)
+{
+    var response = _http.Get($"/accounts/{account}");   // thread parked here
+    return Parse(response);
+}
+
+// async: the thread is returned to the pool while the network call is in flight
+public async Task&lt;decimal&gt; GetBalanceAsync(string account)
+{
+    var response = await _http.GetAsync($"/accounts/{account}");
+    return Parse(response);
+}</code></pre>
+<p>Note what is <em>not</em> happening: no new thread is created. The work is being done by the network card and the remote server. Async is about <strong>I/O you are waiting on</strong> — network calls, database queries, file access. For CPU-bound work it buys you nothing on its own.</p>
+<h2 id="h-8-1">2. Task and Task&lt;T&gt;</h2>
+<table>
+        <tbody><tr><th>Type</th><th>Means</th></tr>
+        <tr><td><code>Task</code></td><td>An operation in progress that returns nothing. The async <code>void</code></td></tr>
+        <tr><td><code>Task&lt;T&gt;</code></td><td>An operation in progress that will produce a <code>T</code></td></tr>
+        <tr><td><code>ValueTask&lt;T&gt;</code></td><td>An optimisation for hot paths that usually complete synchronously. Ignore until you measure</td></tr>
+      </tbody></table>
+<p>A <code>Task</code> is a <em>promise of a future result</em>. <code>await</code> unwraps it — suspending the method until the task completes, then continuing with the value.</p>
+<div class="code-label">the rules of thumb</div>
+<pre><code class="language-csharp">public async Task&lt;decimal&gt; GetAsync() { ... }   // returns a value
+public async Task SaveAsync() { ... }            // returns nothing
+public async void Fire() { ... }                 // ALMOST ALWAYS WRONG — see below</code></pre>
+<div class="callout danger">
+        <div class="cl-title">Never write async void</div>
+        An <code>async void</code> method cannot be awaited, so the caller cannot know when it finished — and an exception
+        thrown inside it cannot be caught by the caller. It escapes to the runtime and <strong>crashes the process</strong>.
+        The single exception is an event handler, whose signature forces it. Everywhere else, return <code>Task</code>.
+      </div>
+<h2 id="h-8-2">3. async All The Way Up</h2>
+<p>Async is viral by design. If a method awaits, it must be <code>async</code>, and so must its callers.</p>
+<div class="code-label">the shape</div>
+<pre><code class="language-csharp">// controller
+public async Task&lt;IActionResult&gt; Get(string id)
+    =&gt; Ok(await _service.GetBalanceAsync(id));
+
+// service
+public async Task&lt;decimal&gt; GetBalanceAsync(string id)
+    =&gt; await _repository.FindBalanceAsync(id);
+
+// repository
+public async Task&lt;decimal&gt; FindBalanceAsync(string id)
+    =&gt; await _db.Accounts.Where(a =&gt; a.Id == id).Select(a =&gt; a.Balance).FirstAsync();</code></pre>
+<p>By convention, async methods end in <code>Async</code>. It is a convention, not a rule, but universal — and it makes the viral boundary visible at a glance.</p>
+<h2 id="h-8-3">4. The Deadlock You Will Cause Exactly Once</h2>
+<div class="callout danger">
+        <div class="cl-title">Never block on async code</div>
+        <pre style="margin:8px 0 0;"><code class="language-csharp">var balance = GetBalanceAsync(id).Result;       // deadlock risk
+var balance = GetBalanceAsync(id).GetAwaiter().GetResult();   // same
+GetBalanceAsync(id).Wait();                     // same</code></pre>
+        In a context with a synchronisation context — classic ASP.NET, WPF, WinForms — the continuation needs the thread
+        you are blocking on in order to finish. It waits for you; you wait for it; the request hangs forever.
+        <strong>The fix is to await, all the way up.</strong> If you are stuck at a non-async boundary, make that boundary async.
+      </div>
+<p>Modern ASP.NET Core has no synchronisation context, so this particular deadlock is less likely there — but blocking still burns a pool thread, which defeats the entire purpose. The habit is the same either way.</p>
+<h2 id="h-8-4">5. Doing Things At The Same Time</h2>
+<p><code>await</code> in sequence is sequential. If calls do not depend on each other, start them all and then await:</p>
+<div class="code-label">sequential vs concurrent</div>
+<pre><code class="language-csharp">// 600ms total — three 200ms calls, one after another
+var a = await GetBalanceAsync("1");
+var b = await GetBalanceAsync("2");
+var c = await GetBalanceAsync("3");
+
+// ~200ms total — all three in flight together
+var taskA = GetBalanceAsync("1");      // note: no await, so it starts
+var taskB = GetBalanceAsync("2");
+var taskC = GetBalanceAsync("3");
+
+var results = await Task.WhenAll(taskA, taskB, taskC);</code></pre>
+<table>
+        <tbody><tr><th>Method</th><th>Completes when</th></tr>
+        <tr><td><code>Task.WhenAll</code></td><td>Every task finishes. Throws if any failed</td></tr>
+        <tr><td><code>Task.WhenAny</code></td><td>The first task finishes — useful for timeouts and racing replicas</td></tr>
+        <tr><td><code>Task.Delay</code></td><td>After a duration. The async <code>Thread.Sleep</code></td></tr>
+        <tr><td><code>Task.FromResult</code></td><td>Immediately — for returning a known value from an async signature</td></tr>
+      </tbody></table>
+<div class="callout warn">
+        <div class="cl-title">WhenAll and exceptions</div>
+        If several tasks fail, <code>await Task.WhenAll(...)</code> rethrows only the <em>first</em> exception. The others are
+        still there, on the task's <code>AggregateException</code> — so if you need them all, inspect
+        <code>task.Exception.InnerExceptions</code> rather than relying on the catch.
+      </div>
+<h2 id="h-8-5">6. Cancellation</h2>
+<p>Long-running work should be interruptible. <code>CancellationToken</code> is the standard mechanism, and ASP.NET Core supplies one that fires when the client disconnects.</p>
+<div class="code-label">pass it down, always</div>
+<pre><code class="language-csharp">public async Task&lt;decimal&gt; GetBalanceAsync(string id, CancellationToken ct)
+{
+    var response = await _http.GetAsync($"/accounts/{id}", ct);
+    ct.ThrowIfCancellationRequested();
+    return Parse(await response.Content.ReadAsStringAsync(ct));
+}
+
+// a timeout, expressed as cancellation
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+try { await GetBalanceAsync(id, cts.Token); }
+catch (OperationCanceledException) { /* timed out */ }</code></pre>
+<p>Take a <code>CancellationToken</code> as the last parameter and pass it to everything you call. A method that ignores it cannot be stopped, which means a disconnected client's work keeps consuming resources to produce a response nobody will read.</p>
+<h2 id="h-8-6">7. The Mistakes, Collected</h2>
+<table>
+        <tbody><tr><th>Mistake</th><th>Consequence</th></tr>
+        <tr><td><code>async void</code></td><td>Exceptions crash the process; caller cannot await</td></tr>
+        <tr><td><code>.Result</code> / <code>.Wait()</code></td><td>Deadlock, or a wasted pool thread</td></tr>
+        <tr><td>Awaiting in a loop when calls are independent</td><td>Latency adds up instead of overlapping</td></tr>
+        <tr><td>Not passing <code>CancellationToken</code></td><td>Work cannot be stopped</td></tr>
+        <tr><td><code>Task.Run</code> around I/O</td><td>Burns a thread to wait — the opposite of the goal</td></tr>
+        <tr><td>Forgetting to await</td><td>Fire-and-forget: exceptions vanish silently. The compiler warns — heed it</td></tr>
+      </tbody></table>
+<div class="callout tip">
+        <div class="cl-title">Task.Run is for CPU work only</div>
+        <code>Task.Run</code> moves work to a pool thread. That is right for a heavy calculation blocking a UI, and wrong for I/O —
+        wrapping an HTTP call in <code>Task.Run</code> occupies a thread to sit and wait, which is precisely what async exists to avoid.
+      </div>

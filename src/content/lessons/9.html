@@ -1,0 +1,111 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Why is <code>async void</code> dangerous, and how do you run three independent async calls concurrently?</div>
+<h2 id="h-9-0">1. A Delegate Is A Typed Reference To A Method</h2>
+<div class="code-label">the explicit form</div>
+<pre><code class="language-csharp">public delegate decimal FeeCalculator(decimal amount);   // declares a SHAPE
+
+static decimal FlatFee(decimal amount) =&gt; 50m;
+static decimal PercentFee(decimal amount) =&gt; amount * 0.015m;
+
+FeeCalculator calc = FlatFee;        // store a method in a variable
+Console.WriteLine(calc(1000m));      // 50
+
+calc = PercentFee;                   // swap the behaviour at runtime
+Console.WriteLine(calc(1000m));      // 15</code></pre>
+<p>That is the whole idea: <strong>behaviour as data</strong>. A variable holding a method you can pass to another method, store in a field, or choose at runtime.</p>
+<h2 id="h-9-1">2. You Rarely Declare One — Use Func and Action</h2>
+<p>.NET ships generic delegate types that cover almost every shape, so custom <code>delegate</code> declarations are now uncommon.</p>
+<table>
+        <tbody><tr><th>Type</th><th>Shape</th><th>Example</th></tr>
+        <tr><td><code>Action</code></td><td>nothing → nothing</td><td><code>() =&gt; Console.WriteLine("hi")</code></td></tr>
+        <tr><td><code>Action&lt;T&gt;</code></td><td>T → nothing</td><td><code>a =&gt; Log(a)</code></td></tr>
+        <tr><td><code>Func&lt;T&gt;</code></td><td>nothing → T</td><td><code>() =&gt; DateTime.UtcNow</code></td></tr>
+        <tr><td><code>Func&lt;T, R&gt;</code></td><td>T → R</td><td><code>a =&gt; a.Balance</code></td></tr>
+        <tr><td><code>Func&lt;T, U, R&gt;</code></td><td>T, U → R</td><td><code>(a, b) =&gt; a + b</code></td></tr>
+        <tr><td><code>Predicate&lt;T&gt;</code></td><td>T → bool</td><td><code>a =&gt; a.IsActive</code></td></tr>
+      </tbody></table>
+<p>In <code>Func</code>, <strong>the last type parameter is the return type</strong>. <code>Func&lt;string, int, bool&gt;</code> takes a string and an int and returns a bool. <code>Action</code> has no return type at all.</p>
+<div class="code-label">the same thing, without a custom delegate</div>
+<pre><code class="language-csharp">Func&lt;decimal, decimal&gt; calc = amount =&gt; amount * 0.015m;
+
+public decimal Apply(decimal amount, Func&lt;decimal, decimal&gt; fee) =&gt; amount + fee(amount);
+
+var total = Apply(1000m, a =&gt; a * 0.015m);   // strategy passed in at the call site</code></pre>
+<h2 id="h-9-2">3. Lambdas</h2>
+<div class="code-label">forms</div>
+<pre><code class="language-csharp">x =&gt; x * 2                      // one parameter, expression body
+(x, y) =&gt; x + y                 // two parameters
+()  =&gt; DateTime.UtcNow          // none
+x =&gt; { var y = x * 2; return y + 1; }        // statement body
+(decimal x) =&gt; x * 2            // explicit type, when inference fails
+static x =&gt; x * 2               // guarantees no capture — see closures below</code></pre>
+<p>A lambda is just an inline method with the ceremony removed. The compiler infers the parameter types from the delegate it is being assigned to, which is why <code>a =&gt; a.Balance</code> works without saying what <code>a</code> is.</p>
+<p><strong>Method group conversion</strong> — when the lambda does nothing but call an existing method, pass the method itself:</p>
+<pre><code class="language-csharp">accounts.Select(a =&gt; a.ToString());   // lambda
+accounts.Select(FormatAccount);        // method group — cleaner when it fits
+names.ForEach(Console.WriteLine);      // very common form</code></pre>
+<h2 id="h-9-3">4. Closures — Powerful And Occasionally Surprising</h2>
+<p>A lambda can use variables from the enclosing scope. It <strong>captures the variable, not a copy of its value</strong>.</p>
+<div class="code-label">the classic trap</div>
+<pre><code class="language-csharp">var actions = new List&lt;Action&gt;();
+
+for (int i = 0; i &lt; 3; i++)
+    actions.Add(() =&gt; Console.WriteLine(i));    // captures i, the variable
+
+foreach (var a in actions) a();                 // prints 3, 3, 3 — not 0, 1, 2</code></pre>
+<p>All three lambdas captured the same <code>i</code>, and by the time they run the loop has finished and <code>i</code> is 3. The fix is a fresh variable per iteration:</p>
+<div class="code-label">the fix</div>
+<pre><code class="language-csharp">for (int i = 0; i &lt; 3; i++)
+{
+    var captured = i;                           // new variable each iteration
+    actions.Add(() =&gt; Console.WriteLine(captured));
+}                                               // prints 0, 1, 2
+
+foreach (var i in Enumerable.Range(0, 3))       // foreach already gives a fresh variable
+    actions.Add(() =&gt; Console.WriteLine(i));    // prints 0, 1, 2</code></pre>
+<div class="callout">
+        <div class="cl-title">Why C# allows what Java forbids</div>
+        Java requires captured locals to be effectively final, which makes this bug impossible but also makes some patterns awkward.
+        C# captures the variable itself, which is more flexible and puts the correctness burden on you. The <code>static</code>
+        modifier on a lambda tells the compiler to reject any capture — useful when you want that guarantee in a hot path.
+      </div>
+<h2 id="h-9-4">5. Where You Will Actually Meet These</h2>
+<table>
+        <tbody><tr><th>Context</th><th>Example</th></tr>
+        <tr><td>LINQ — all of it</td><td><code>.Where(a =&gt; a.IsActive).Select(a =&gt; a.Id)</code></td></tr>
+        <tr><td>ASP.NET Core configuration</td><td><code>builder.Services.AddDbContext&lt;Db&gt;(o =&gt; o.UseSqlServer(cs))</code></td></tr>
+        <tr><td>Minimal API routes</td><td><code>app.MapGet("/health", () =&gt; "ok")</code></td></tr>
+        <tr><td>Sorting</td><td><code>list.Sort((a, b) =&gt; a.Balance.CompareTo(b.Balance))</code></td></tr>
+        <tr><td>Test setup with Moq</td><td><code>mock.Setup(x =&gt; x.GetAsync(It.IsAny&lt;string&gt;()))</code></td></tr>
+        <tr><td>Retry and resilience policies</td><td><code>policy.ExecuteAsync(() =&gt; CallApiAsync())</code></td></tr>
+        <tr><td>Deferred values</td><td><code>Func&lt;DateTime&gt; clock</code> — injectable time, which makes tests deterministic</td></tr>
+      </tbody></table>
+<div class="callout tip">
+        <div class="cl-title">The injectable-clock trick</div>
+        A class that calls <code>DateTime.UtcNow</code> directly is painful to test, because you cannot control the answer.
+        Inject <code>Func&lt;DateTime&gt; now</code> instead: production passes <code>() =&gt; DateTime.UtcNow</code>, a test passes
+        <code>() =&gt; new DateTime(2026, 1, 1)</code>. One delegate removes the entire problem.
+      </div>
+<h2 id="h-9-5">6. Events</h2>
+<p>An event is a delegate with restrictions: outside code may only subscribe and unsubscribe, never invoke or replace the whole list.</p>
+<div class="code-label">publisher and subscriber</div>
+<pre><code class="language-csharp">public class AccountService
+{
+    public event Action&lt;string, decimal&gt;? BalanceChanged;
+
+    public void Deposit(string account, decimal amount)
+    {
+        // ... do the work ...
+        BalanceChanged?.Invoke(account, amount);   // ?. because it is null with no subscribers
+    }
+}
+
+var service = new AccountService();
+service.BalanceChanged += (acct, amt) =&gt; Console.WriteLine($"{acct} +{amt}");
+service.BalanceChanged += (acct, amt) =&gt; _audit.Record(acct, amt);   // many subscribers</code></pre>
+<p><code>+=</code> subscribes and <code>-=</code> unsubscribes. An event with no subscribers is <code>null</code>, so <code>?.Invoke</code> rather than a plain call.</p>
+<div class="callout warn">
+        <div class="cl-title">Events leak memory</div>
+        Subscribing creates a reference from the publisher to the subscriber. If the publisher outlives the subscriber and you never
+        <code>-=</code>, the subscriber can never be collected. In long-lived objects, always unsubscribe — commonly in <code>Dispose</code>.
+        In modern server code, prefer explicit messaging or dependency injection over events for exactly this reason.
+      </div>

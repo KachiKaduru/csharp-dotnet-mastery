@@ -1,0 +1,121 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Is a JWT encrypted? Why can't it be revoked? Which status code means authenticated-but-not-permitted?</div>
+<h2 id="h-15-0">1. ILogger Is Already There</h2>
+<p>No package, no configuration. Inject <code>ILogger&lt;T&gt;</code> and the category is set to <code>T</code> automatically — which is what later lets you raise the level for one class without drowning in everything else.</p>
+<div class="code-label">injection</div>
+<pre><code class="language-csharp">public class TransferService
+{
+    private readonly ILogger&lt;TransferService&gt; _logger;
+
+    public TransferService(ILogger&lt;TransferService&gt; logger) =&gt; _logger = logger;
+}</code></pre>
+<div class="callout danger">
+        <div class="cl-title">Console.WriteLine is not logging</div>
+        It has no levels, no timestamps, no destinations, no context, and it writes synchronously to a stream nobody is reading.
+        It works on your machine and tells you nothing in production.
+      </div>
+<h2 id="h-15-1">2. The Levels, And When Each Is Right</h2>
+<table>
+        <tbody><tr><th>Level</th><th>Use for</th><th>Example</th></tr>
+        <tr><td><code>Critical</code></td><td>The application cannot continue</td><td>Cannot reach the database at startup</td></tr>
+        <tr><td><code>Error</code></td><td>An operation failed and a human should act</td><td>Transfer failed after all retries</td></tr>
+        <tr><td><code>Warning</code></td><td>Unexpected, but handled</td><td>Retry 2 of 3 succeeded; circuit breaker opened</td></tr>
+        <tr><td><code>Information</code></td><td>Significant business events. On in production</td><td>Transfer initiated; transfer completed</td></tr>
+        <tr><td><code>Debug</code></td><td>Diagnostic detail. Off in production</td><td>Which branch was taken, request shape</td></tr>
+        <tr><td><code>Trace</code></td><td>Very fine detail. Almost never on. May contain sensitive data</td><td>Every field mapped</td></tr>
+      </tbody></table>
+<div class="callout warn">
+        <div class="cl-title">The judgement that separates useful logs from noise</div>
+        <strong>Error means someone should act.</strong> If a line fires every few minutes and nobody ever does anything,
+        it is not an error — it is Warning or Information. Leaving it as Error trains the whole team to ignore the alerts
+        that matter. A log where everything is an error is a log nobody reads.
+      </div>
+<h2 id="h-15-2">3. Structured Logging — Use The Template</h2>
+<div class="code-label">the single most important habit on this page</div>
+<pre><code class="language-csharp">// WRONG — string interpolation
+_logger.LogInformation($"Transfer {reference} of {amount} completed");
+
+// RIGHT — named placeholders
+_logger.LogInformation("Transfer {Reference} of {Amount} completed", reference, amount);</code></pre>
+<p>These look almost identical and behave very differently:</p>
+<ul>
+        <li><strong>The interpolated version</strong> produces a unique string every time. A log aggregator sees a million distinct messages and cannot group or query them.</li>
+        <li><strong>The templated version</strong> keeps the message constant and attaches <code>Reference</code> and <code>Amount</code> as queryable fields. You can then ask for "all logs where Amount &gt; 1000000" — which is the entire point of structured logging.</li>
+        <li>It is also cheaper: with interpolation the string is built even when the level is disabled.</li>
+      </ul>
+<p>Placeholders are matched <strong>by position, not by name</strong>, so the argument order must match the template order. The names are for the output, not the binding.</p>
+<h2 id="h-15-3">4. Scopes — Correlating One Request</h2>
+<p>One request touches a controller, a service, a repository and an HTTP client. Under load, hundreds interleave in the log file. Without something tying them together you cannot reconstruct a single operation — which is the whole job during an incident.</p>
+<div class="code-label">a scope adds context to everything inside it</div>
+<pre><code class="language-csharp">using (_logger.BeginScope("Transfer {Reference}", request.Reference))
+{
+    _logger.LogInformation("Validating");
+    await _validator.CheckAsync(request, ct);
+
+    _logger.LogInformation("Debiting {Account}", request.Source);
+    await _accounts.DebitAsync(request.Source, request.Amount, ct);
+
+    _logger.LogInformation("Completed");
+}
+// every line above carries Reference, without repeating it</code></pre>
+<p>ASP.NET Core also gives every request a <code>TraceIdentifier</code> automatically. Include it in responses — particularly error responses — so a customer complaint arrives with the exact key to find the request:</p>
+<pre><code class="language-csharp">new ProblemDetails { Extensions = { ["traceId"] = HttpContext.TraceIdentifier } }</code></pre>
+<div class="callout tip">
+        <div class="cl-title">Log durations on every external call</div>
+        "The transfer was slow" is unactionable. "The core banking call took 8.2 seconds" is a conversation with another team.
+        It is also the only way to know whether your timeout value is sensible.
+      </div>
+<h2 id="h-15-4">5. Logging Exceptions Properly</h2>
+<div class="code-label">pass the exception, do not stringify it</div>
+<pre><code class="language-csharp">catch (HttpRequestException ex)
+{
+    _logger.LogError("Transfer failed: " + ex.Message);          // loses the stack trace
+    _logger.LogError(ex, "Transfer {Ref} failed", reference);    // keeps it — exception FIRST
+}</code></pre>
+<p>The exception is the <strong>first</strong> argument, with no matching placeholder. <code>ex.Message</code> alone frequently returns something useless, and discards the stack entirely — which is how you end up with the log line <code>Transfer failed:</code> and nothing to go on.</p>
+<p>Two more rules: <strong>log it or rethrow it, not both</strong> (otherwise the same trace appears at three layers and triples log volume during an incident), and <strong>never swallow silently</strong>.</p>
+<h2 id="h-15-5">6. What You Must Never Log</h2>
+<p>Logs are shipped to aggregators, pasted into tickets, and read by people with no business seeing customer data. In a regulated environment this is a compliance matter, not a style preference.</p>
+<table>
+        <tbody><tr><th>Never</th><th>Log instead</th></tr>
+        <tr><td>Full card numbers</td><td>First 6 and last 4: <code>539983******1234</code></td></tr>
+        <tr><td>Full account numbers</td><td>Last 4, or an internal reference</td></tr>
+        <tr><td>Passwords, PINs, OTPs</td><td>Nothing. Not masked, not at Debug</td></tr>
+        <tr><td>Tokens, API keys, auth headers</td><td>Nothing, or a short hash if you must correlate</td></tr>
+        <tr><td>National IDs, full names with balances</td><td>A customer id resolvable in a controlled system</td></tr>
+        <tr><td>Whole request or response bodies</td><td>The specific fields you need</td></tr>
+      </tbody></table>
+<div class="callout danger">
+        <div class="cl-title">The trap</div>
+        <code>_logger.LogDebug("Request: {Request}", request)</code> looks harmless and is the most common way sensitive data
+        reaches a log file — because serialising the object includes everything in it. Log named fields, not objects.
+      </div>
+<h2 id="h-15-6">7. Configuration</h2>
+<div class="code-label">appsettings.json</div>
+<pre><code class="language-json">{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "MiniBank.Transfers": "Debug",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  }
+}</code></pre>
+<p>Levels are set <strong>per category</strong>, which is the payoff for injecting <code>ILogger&lt;T&gt;</code>: you can turn your own namespace up to Debug in production for ten minutes without the framework burying you. That last line logs EF's generated SQL — the N+1 detector from the previous page.</p>
+<h2 id="h-15-7">8. Logs, Metrics, Traces And Health</h2>
+<table>
+        <tbody><tr><th>Tool</th><th>Answers</th></tr>
+        <tr><td><strong>Logs</strong></td><td>What happened to <em>this</em> request? Individual events, high detail</td></tr>
+        <tr><td><strong>Metrics</strong></td><td>How is the system doing <em>overall</em>? Rates, counts, latency percentiles</td></tr>
+        <tr><td><strong>Traces</strong></td><td>Where did the time <em>go</em> across services? Distributed tracing</td></tr>
+        <tr><td><strong>Health checks</strong></td><td>Should the load balancer send traffic here?</td></tr>
+      </tbody></table>
+<p>Do not grep logs to answer "what is our p99", and do not consult a dashboard to debug one transaction. A correlation id is the poor version of a trace, and for a long while it is enough.</p>
+<div class="code-label">health checks</div>
+<pre><code class="language-csharp">builder.Services.AddHealthChecks()
+    .AddDbContextCheck&lt;AppDbContext&gt;()
+    .AddUrlGroup(new Uri("https://core.internal/health"), name: "core-banking");
+
+app.MapHealthChecks("/health/live");    // am I running?
+app.MapHealthChecks("/health/ready");   // can I serve traffic?</code></pre>
+<p>Keep <strong>liveness</strong> and <strong>readiness</strong> separate. Liveness should not check dependencies — if it does, a database blip makes the orchestrator kill otherwise healthy instances, turning a degradation into an outage.</p>

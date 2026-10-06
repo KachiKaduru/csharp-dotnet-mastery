@@ -1,0 +1,101 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Without looking: the three DI lifetimes, what causes N+1, why a JWT cannot be revoked, and what makes a test coupled to implementation.</div>
+<h2 id="h-17-0">1. What You Are Building</h2>
+<p>MiniBank as an HTTP API. Three projects, as set up on the setup page:</p>
+<pre><code class="language-text">MiniBank.sln
+├── MiniBank.Core      ← domain types and business rules. No ASP.NET, no EF
+├── MiniBank.Api       ← controllers, DI, middleware, EF, auth
+└── MiniBank.Tests     ← unit tests for Core, integration tests for Api</code></pre>
+<div class="callout concept">
+        <div class="cl-title">The constraint that teaches the most</div>
+        <strong><code>MiniBank.Core</code> must not reference ASP.NET Core or EF Core at all.</strong> Business rules depend on
+        nothing but the language. If a rule needs data, it takes it as a parameter or depends on an interface that Core defines
+        and Api implements. That single restriction forces the dependency direction that makes the whole thing testable, and it is
+        the practical core of every "clean architecture" article you will read.
+      </div>
+<h2 id="h-17-1">2. Endpoints</h2>
+<table>
+        <tbody><tr><th>Method</th><th>Route</th><th>Returns</th></tr>
+        <tr><td>POST</td><td><code>/api/auth/login</code></td><td>200 with a token, 401 on failure</td></tr>
+        <tr><td>POST</td><td><code>/api/accounts</code></td><td>201 with Location, 400 on validation failure</td></tr>
+        <tr><td>GET</td><td><code>/api/accounts/{number}</code></td><td>200, 404, 403 if not yours</td></tr>
+        <tr><td>GET</td><td><code>/api/accounts/{number}/transactions</code></td><td>200 with pagination</td></tr>
+        <tr><td>POST</td><td><code>/api/transfers</code></td><td>201, 400, 409 on insufficient funds</td></tr>
+        <tr><td>GET</td><td><code>/api/reports/by-currency</code></td><td>200, admin policy only</td></tr>
+        <tr><td>GET</td><td><code>/health/live</code> and <code>/health/ready</code></td><td>200 / 503</td></tr>
+      </tbody></table>
+<h2 id="h-17-2">3. Requirements Checklist</h2>
+<ul>
+        <li><strong>DTOs everywhere.</strong> No EF entity appears in a request or a response signature</li>
+        <li><strong>Validation</strong> via annotations for shape, service layer for business rules</li>
+        <li><strong>One exception-handling middleware</strong> mapping domain exceptions to status codes and <code>ProblemDetails</code>. No <code>try/catch</code> in any controller</li>
+        <li><strong>EF Core</strong> with migrations, <code>HasPrecision(18,2)</code> on every money column, and a unique index on account number</li>
+        <li><strong>JWT auth</strong> with 15-minute tokens, all four validation flags on, a policy for the admin report</li>
+        <li><strong>Passwords</strong> via <code>PasswordHasher</code>. Identical error message for unknown user and wrong password</li>
+        <li><strong>Structured logging</strong> with a scope carrying the transfer reference, and durations on external calls</li>
+        <li><strong>Pagination</strong> on the transactions endpoint, with the total count returned</li>
+        <li><strong>Tests:</strong> unit tests for every rule in Core, integration tests via <code>WebApplicationFactory</code> for each endpoint's status codes</li>
+        <li><strong>Secrets</strong> in user-secrets, never in <code>appsettings.json</code></li>
+      </ul>
+<h2 id="h-17-3">4. Pick One Hard Constraint</h2>
+<p>Plain CRUD teaches CRUD. The constraint is where the learning is — do <strong>one</strong> of these properly:</p>
+<ul>
+        <li><strong>Idempotent transfers.</strong> Accept an <code>Idempotency-Key</code> header. The same key replayed must return the original result and must not move money twice. Then prove it with a test that fires the same request twice concurrently.</li>
+        <li><strong>Optimistic concurrency.</strong> Add a <code>rowversion</code> to Account. Two simultaneous transfers from the same account must not both succeed against a stale balance. Handle <code>DbUpdateConcurrencyException</code> and decide what the client sees.</li>
+        <li><strong>Resilience.</strong> Put a fake core banking service behind the transfer endpoint with configurable latency and failure. Add timeout, retry and circuit breaker, and make retries safe. Prove with a test that a timeout does not double-debit.</li>
+      </ul>
+<div class="callout warn">
+        <div class="cl-title">The one that will teach you the most</div>
+        Idempotency. It forces you to confront the fact that a timeout means <em>unknown</em>, not <em>failed</em> —
+        and that retrying an unknown is how money gets moved twice. Every real payment system is built around this problem.
+      </div>
+<h2 id="h-17-4">5. Review It Before You Call It Done</h2>
+<ol>
+        <li>Does <code>MiniBank.Core</code> reference ASP.NET Core or EF? If so, the dependency direction is inverted</li>
+        <li>Is there a single EF entity in a controller signature?</li>
+        <li>Any <code>try/catch</code> in a controller? Any <code>throw ex</code>? Any empty <code>catch</code>?</li>
+        <li>Log the SQL and exercise every endpoint. How many queries per request? Any N+1?</li>
+        <li>Is <code>decimal</code> used for every monetary value, with precision configured?</li>
+        <li>Is any service a Singleton that depends on something Scoped?</li>
+        <li>Does any log line contain an account number, a token, or a serialised request object?</li>
+        <li>Can you run the whole suite and have it pass with no database present?</li>
+        <li>Could a new developer run this from your README alone?</li>
+      </ol>
+<h2 id="h-17-5">6. Interview Simulation</h2>
+<p>Answer these <strong>out loud</strong>, from memory. Explaining is a harder test than recognising, and it is the one that reveals what you actually understand.</p>
+<h3>About the language</h3>
+<ol>
+        <li>Value types versus reference types, and a bug caused by confusing them</li>
+        <li>Why <code>decimal</code> and not <code>double</code> for money</li>
+        <li>What a <code>record</code> generates, and when you would use a <code>class</code> instead</li>
+        <li>What deferred execution is, and a problem it has caused you</li>
+        <li>What problem <code>async</code> solves — and what it does not</li>
+        <li>Why <code>async void</code> is dangerous</li>
+      </ol>
+<h3>About the framework</h3>
+<ol>
+        <li>Explain dependency injection and why the framework includes it</li>
+        <li>The three lifetimes, and what a captive dependency is</li>
+        <li>What middleware is, and a concrete bug caused by wrong ordering</li>
+        <li>Why DTOs rather than entities — give three reasons</li>
+        <li>401 versus 403</li>
+        <li>What a <code>DbContext</code> is, and why it is Scoped</li>
+        <li>What the N+1 problem is and how you would find it</li>
+      </ol>
+<h3>About judgement — the ones that actually matter</h3>
+<ol>
+        <li>Walk me through this project. What was the hardest decision?</li>
+        <li>What would you change if it had to handle 10,000 transfers a second?</li>
+        <li>How did you make sure a transfer cannot lose money?</li>
+        <li>What is the weakest part of your code, and why did you leave it?</li>
+        <li>How would you debug a report that transfers are "sometimes slow"?</li>
+        <li>What did you get wrong while building this, and how did you find out?</li>
+      </ol>
+<div class="callout tip">
+        <div class="cl-title">The last two are the real questions</div>
+        Anyone can recite the three lifetimes. Describing something you got wrong, how you discovered it, and what you changed
+        demonstrates that you have actually built something and that you learn from it — which is the thing being assessed.
+        Have a real answer ready, and do not make it a humblebrag.
+      </div>
+<h2 id="h-17-6">7. Then Keep Going</h2>
+<p>If you want to carry this further, in rough order of value: containerise it and run it against a real database in Docker; add a CI pipeline that builds, tests and reports coverage; add OpenAPI documentation; add rate limiting; add distributed tracing with OpenTelemetry; deploy it somewhere with a URL that works.</p>
+<p>That last one is worth more than the rest. A deployed thing you can show, explain and defend is the strongest evidence of skill there is.</p>

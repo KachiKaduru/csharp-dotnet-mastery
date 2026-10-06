@@ -1,0 +1,120 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What is a closure, and what is the classic bug with capturing a loop variable? And what does <code>Func&lt;string, int, bool&gt;</code> return?</div>
+<h2 id="h-11-0">1. The Whole Startup, In One File</h2>
+<div class="code-label">Program.cs</div>
+<pre><code class="language-csharp">var builder = WebApplication.CreateBuilder(args);
+
+// ── 1. REGISTER services (the DI container) ──
+builder.Services.AddControllers();
+builder.Services.AddScoped&lt;IAccountRepository, SqlAccountRepository&gt;();
+builder.Services.AddSingleton&lt;IClock, SystemClock&gt;();
+builder.Services.AddHttpClient&lt;CoreBankingClient&gt;();
+
+var app = builder.Build();
+
+// ── 2. BUILD the request pipeline (middleware) ──
+app.UseExceptionHandler("/error");
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();</code></pre>
+<p>Two distinct phases, and the distinction matters. <strong>Before <code>Build()</code></strong> you register what the application <em>has</em>. <strong>After <code>Build()</code></strong> you declare what a request <em>goes through</em>. Trying to add a service after <code>Build()</code> throws.</p>
+<h2 id="h-11-1">2. Dependency Injection Is Built In</h2>
+<p>There is no separate container to install. A class declares what it needs in its constructor and the framework supplies it.</p>
+<div class="code-label">constructor injection</div>
+<pre><code class="language-csharp">public class AccountService
+{
+    private readonly IAccountRepository _repo;
+    private readonly ILogger&lt;AccountService&gt; _logger;
+
+    public AccountService(IAccountRepository repo, ILogger&lt;AccountService&gt; logger)
+    {
+        _repo = repo;
+        _logger = logger;
+    }
+}</code></pre>
+<p>Nobody ever writes <code>new AccountService(...)</code>. The container sees the constructor, resolves each parameter from its registrations, and builds the whole graph.</p>
+<div class="callout concept">
+        <div class="cl-title">Why this matters beyond convenience</div>
+        The class depends on <code>IAccountRepository</code>, not on a SQL implementation. That single fact is what makes it
+        <strong>testable</strong> — a test constructs it with a fake — and what lets you swap the database without touching
+        business logic. Dependency injection is not plumbing; it is the mechanism that keeps the interesting code independent
+        of the boring code.
+      </div>
+<h2 id="h-11-2">3. The Three Lifetimes</h2>
+<table>
+        <tbody><tr><th>Registration</th><th>One instance per</th><th>Use for</th></tr>
+        <tr><td><code>AddSingleton</code></td><td>Application</td><td>Stateless or thread-safe shared things: caches, clocks, configuration</td></tr>
+        <tr><td><code>AddScoped</code></td><td>HTTP request</td><td><strong>The default choice.</strong> Repositories, services, <code>DbContext</code></td></tr>
+        <tr><td><code>AddTransient</code></td><td>Resolution — every injection</td><td>Cheap, stateless helpers</td></tr>
+      </tbody></table>
+<div class="callout danger">
+        <div class="cl-title">The captive dependency bug</div>
+        <strong>Never inject a Scoped service into a Singleton.</strong> The singleton is created once and holds that instance
+        for the lifetime of the application — so a request-scoped <code>DbContext</code> ends up shared across every subsequent
+        request, long after its own request ended. Symptoms are disposed-object exceptions and data from one user appearing in
+        another's response. ASP.NET Core detects this at startup in development; do not suppress the error, fix the lifetime.
+      </div>
+<p>When a singleton genuinely needs scoped work, inject <code>IServiceScopeFactory</code> and create a scope per unit of work.</p>
+<h2 id="h-11-3">4. Middleware — The Request Pipeline</h2>
+<p>Every request passes through an ordered chain. Each piece can act on the way in, pass control onward, and act again on the way out.</p>
+<pre><code class="language-text">Request  ▸  Exception handler  ▸  HTTPS  ▸  Auth  ▸  Authorization  ▸  Endpoint
+                     ▾                 ▾        ▾            ▾              ▾
+Response ◂──────────────────────────────────────────────────────────────</code></pre>
+<div class="code-label">custom middleware</div>
+<pre><code class="language-csharp">app.Use(async (context, next) =&gt;
+{
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+
+    await next(context);          // everything downstream happens here
+
+    logger.LogInformation("{Method} {Path} -&gt; {Status} in {Ms}ms",
+        context.Request.Method, context.Request.Path,
+        context.Response.StatusCode, sw.ElapsedMilliseconds);
+});</code></pre>
+<div class="callout warn">
+        <div class="cl-title">Order is behaviour, not style</div>
+        The pipeline runs in registration order. <code>UseAuthorization</code> before <code>UseAuthentication</code> means
+        authorisation runs before anyone has been identified, so every authenticated endpoint rejects valid requests.
+        <code>UseExceptionHandler</code> registered last cannot catch anything registered before it. When something inexplicable
+        happens in ASP.NET Core, <strong>check the middleware order first</strong> — it is the most common cause.
+      </div>
+<p>Note also: calling <code>next</code> is optional. Middleware that does not call it <strong>short-circuits</strong> the pipeline and returns immediately — which is exactly how caching and rate limiting work.</p>
+<h2 id="h-11-4">5. Configuration</h2>
+<div class="code-label">appsettings.json</div>
+<pre><code class="language-json">{
+  "ConnectionStrings": {
+    "Default": "Server=localhost;Database=minibank;Trusted_Connection=True;"
+  },
+  "CoreBanking": {
+    "BaseUrl": "https://core.internal/api",
+    "TimeoutSeconds": 5,
+    "MaxRetries": 3
+  }
+}</code></pre>
+<p>Sources are layered, each overriding the previous: <code>appsettings.json</code>, then <code>appsettings.{Environment}.json</code>, then environment variables, then command-line arguments. That is how one build runs in every environment.</p>
+<div class="code-label">the options pattern — preferred</div>
+<pre><code class="language-csharp">public class CoreBankingOptions
+{
+    public required string BaseUrl { get; init; }
+    public int TimeoutSeconds { get; init; } = 5;
+    public int MaxRetries { get; init; } = 3;
+}
+
+// register
+builder.Services.Configure&lt;CoreBankingOptions&gt;(
+    builder.Configuration.GetSection("CoreBanking"));
+
+// consume — strongly typed, injected
+public class CoreBankingClient(IOptions&lt;CoreBankingOptions&gt; options)
+{
+    private readonly CoreBankingOptions _o = options.Value;
+}</code></pre>
+<p>Prefer this over reading <code>IConfiguration["CoreBanking:BaseUrl"]</code> everywhere: you get types, defaults, validation, and a single place that documents what the application can be configured with.</p>
+<div class="callout danger">
+        <div class="cl-title">Secrets never go in appsettings.json</div>
+        It is committed to source control. Use <code>dotnet user-secrets</code> in development and environment variables or a
+        secret store in production. A connection string with a password in a repository is a security incident, and rotating it
+        afterwards is considerably more work than doing this correctly the first time.
+      </div>

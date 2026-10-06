@@ -1,0 +1,104 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Name three value types and three reference types. What happens when you assign one reference-type variable to another?</div>
+<h2 id="h-3-0">1. Conditionals</h2>
+<div class="code-label">nothing surprising here</div>
+<pre><code class="language-csharp">if (balance &gt;= amount)
+    Withdraw(amount);
+else if (balance &gt; 0)
+    Console.WriteLine("Insufficient funds");
+else
+    Console.WriteLine("Account empty");
+
+var status = balance &gt; 0 ? "active" : "empty";   // ternary</code></pre>
+<p>One difference from C and from JavaScript: <strong>the condition must be a <code>bool</code>.</strong> <code>if (count)</code> and <code>if (customer)</code> do not compile. Write <code>if (count &gt; 0)</code> and <code>if (customer is not null)</code>. This removes a whole family of truthiness bugs.</p>
+<h2 id="h-3-1">2. Loops</h2>
+<div class="code-label">four forms</div>
+<pre><code class="language-csharp">for (int i = 0; i &lt; 10; i++) { }              // known count
+
+foreach (var account in accounts) { }          // every item — the default choice
+
+while (queue.Count &gt; 0) { }                    // check first
+
+do { attempt++; } while (attempt &lt; 3);         // body runs at least once</code></pre>
+<p><strong>Prefer <code>foreach</code>.</strong> It cannot run off the end of the collection, it reads better, and it works on anything implementing <code>IEnumerable&lt;T&gt;</code> — including things with no index at all, like a <code>HashSet</code> or a lazily-produced sequence.</p>
+<div class="callout warn">
+        <div class="cl-title">You cannot modify a collection while iterating it</div>
+        Adding to or removing from a collection inside its own <code>foreach</code> throws <code>InvalidOperationException</code>:
+        "Collection was modified; enumeration operation may not execute." Iterate a copy (<code>foreach (var x in list.ToList())</code>),
+        collect the items to remove and delete them afterwards, or use <code>RemoveAll</code> with a predicate.
+      </div>
+<p><code>break</code> leaves the loop, <code>continue</code> skips to the next iteration. C# has no labelled break — to leave nested loops either extract a method and <code>return</code>, or set a flag. Extracting the method is almost always clearer.</p>
+<h2 id="h-3-2">3. The switch Statement</h2>
+<div class="code-label">the classic form</div>
+<pre><code class="language-csharp">switch (status)
+{
+    case "active":
+        EnableTransactions();
+        break;                    // required — C# forbids silent fall-through
+    case "dormant":
+    case "frozen":                // stacking empty cases IS allowed
+        BlockTransactions();
+        break;
+    default:
+        throw new ArgumentException($"Unknown status: {status}");
+}</code></pre>
+<p>Unlike C and Java, <strong>C# does not permit implicit fall-through.</strong> Every non-empty case must end with <code>break</code>, <code>return</code> or <code>throw</code>, or it will not compile. The accidental-fall-through bug is impossible.</p>
+<h2 id="h-3-3">4. The switch Expression</h2>
+<p>This is the modern form and the one you should reach for. It is an <em>expression</em> — it produces a value — so it assigns directly:</p>
+<div class="code-label">the same logic, as an expression</div>
+<pre><code class="language-csharp">var fee = accountType switch
+{
+    "savings"  =&gt; 0m,
+    "current"  =&gt; 50m,
+    "corporate" =&gt; 250m,
+    _          =&gt; throw new ArgumentException($"Unknown type: {accountType}")
+};</code></pre>
+<p>Three things to notice:</p>
+<ul>
+        <li><code>_</code> is the <strong>discard pattern</strong> — the default case.</li>
+        <li>No <code>break</code>, no <code>case</code> keyword. Arms are <code>pattern =&gt; value</code>, comma-separated.</li>
+        <li><strong>It must produce a value on every path</strong>, so the compiler warns if your arms are not exhaustive. That warning is the feature: adding a new account type makes the compiler point at the code you forgot.</li>
+      </ul>
+<h2 id="h-3-4">5. Pattern Matching</h2>
+<p>Patterns are where this stops being syntax sugar. They let you test shape, type and value together.</p>
+<div class="code-label">type patterns</div>
+<pre><code class="language-csharp">// test the type and bind a variable in one step
+if (payment is CardPayment card)
+    Console.WriteLine(card.Last4);          // card is strongly typed in here
+
+// the older, clumsier equivalent
+if (payment.GetType() == typeof(CardPayment))
+{
+    var c = (CardPayment)payment;           // test, then cast separately
+    Console.WriteLine(c.Last4);
+}</code></pre>
+<div class="code-label">relational and logical patterns</div>
+<pre><code class="language-csharp">var band = amount switch
+{
+    &lt; 0           =&gt; "invalid",
+    0             =&gt; "zero",
+    &gt; 0 and &lt;= 1000    =&gt; "small",
+    &gt; 1000 and &lt;= 100_000 =&gt; "medium",
+    _             =&gt; "large"
+};
+
+if (code is 401 or 403)         // 'or' pattern beats code == 401 || code == 403
+    return "unauthorised";
+
+if (customer is not null)       // the idiomatic null check in modern C#
+    Process(customer);</code></pre>
+<div class="code-label">property patterns — the genuinely powerful one</div>
+<pre><code class="language-csharp">var decision = transfer switch
+{
+    { Amount: &lt;= 0 }                      =&gt; "reject: invalid amount",
+    { Source.Currency: "NGN", Amount: &gt; 1_000_000 } =&gt; "refer: large local transfer",
+    { Source: { IsFrozen: true } }        =&gt; "reject: source frozen",
+    { Source.Id: var s, Target.Id: var t } when s == t =&gt; "reject: same account",
+    _                                     =&gt; "approve"
+};</code></pre>
+<p>Read that as a rules table rather than as code. Each arm states a <em>shape</em> the object might have. <code>when</code> adds an arbitrary condition, and <code>var s</code> binds a value for use in that condition. Written as nested <code>if</code> statements this would be twenty lines and considerably harder to check for correctness.</p>
+<div class="callout concept">
+        <div class="cl-title">Why this matters beyond elegance</div>
+        Business rules — which is most of what enterprise code is — are naturally a table of conditions mapped to outcomes.
+        Pattern matching lets you write them <em>as</em> a table, so a reviewer can check the rules against a specification line by line
+        instead of tracing branches. That is a correctness benefit, not just a readability one.
+      </div>

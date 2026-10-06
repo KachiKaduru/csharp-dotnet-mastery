@@ -1,0 +1,921 @@
+{
+  "0": [
+    {
+      "q": "Which statement is accurate?",
+      "opts": [
+        ".NET is a framework for writing C#",
+        "C# is a language that targets the .NET platform",
+        ".NET and C# are two names for the same thing",
+        "C# compiles directly to machine code"
+      ],
+      "correct": 1,
+      "expl": ".NET is the platform &mdash; runtime, libraries, tooling. C# is one language that targets it, alongside F# and VB.NET. C# compiles to IL, not machine code."
+    },
+    {
+      "q": "What does the C# compiler produce?",
+      "opts": [
+        "Machine code for the current CPU",
+        "IL (Intermediate Language)",
+        "C++ source code",
+        "An interpreted script"
+      ],
+      "correct": 1,
+      "expl": "Roslyn produces IL, a portable instruction set. The CLR then JIT-compiles IL to native code at runtime, which is what makes the same binary portable across operating systems."
+    },
+    {
+      "q": "Which of these is the legacy, Windows-only line?",
+      "opts": [
+        ".NET 8",
+        ".NET Core 3.1",
+        ".NET Framework 4.8",
+        ".NET 5"
+      ],
+      "correct": 2,
+      "expl": ".NET Framework (up to 4.8) is Windows-only and receives no new feature versions. .NET Core and the unified .NET 5+ are cross-platform."
+    },
+    {
+      "q": "Why did Microsoft skip .NET 4 when renaming?",
+      "opts": [
+        "Superstition about the number",
+        "To avoid confusion with .NET Framework 4.x",
+        "Version 4 failed in testing",
+        "It was released only in Asia"
+      ],
+      "correct": 1,
+      "expl": ".NET Framework already had 4.x versions. Releasing a unified '.NET 4' would have been ambiguous, so they went straight to .NET 5."
+    },
+    {
+      "q": "Which is the ASP.NET Core equivalent in the Java world?",
+      "opts": [
+        "Hibernate",
+        "Maven",
+        "Spring Boot",
+        "The JVM"
+      ],
+      "correct": 2,
+      "expl": "ASP.NET Core is the web framework &#8596; Spring Boot. Entity Framework Core &#8596; Hibernate/JPA. NuGet &#8596; Maven Central. CLR &#8596; JVM."
+    }
+  ],
+  "1": [
+    {
+      "q": "You can run a .NET app but <code>dotnet build</code> says no SDK was found. What happened?",
+      "opts": [
+        "The project file is corrupt",
+        "You installed the runtime, not the SDK",
+        "NuGet is offline",
+        "The target framework is too new"
+      ],
+      "correct": 1,
+      "expl": "The runtime only executes apps. The SDK contains the compiler and build tooling. For development you want the SDK &mdash; it includes a runtime too."
+    },
+    {
+      "q": "Why does a .csproj not list the source files?",
+      "opts": [
+        "It does, in a hidden section",
+        "The SDK includes every .cs file in the folder tree by default",
+        "Only Program.cs is ever compiled",
+        "Files must be registered with dotnet add file"
+      ],
+      "correct": 1,
+      "expl": "Modern SDK-style projects glob all .cs files beneath the project folder. This is why .csproj files are short compared with old .NET Framework ones, which listed every file explicitly."
+    },
+    {
+      "q": "What does <code>dotnet run</code> do?",
+      "opts": [
+        "Runs the last successful build",
+        "Compiles only",
+        "Restores packages, builds, then executes",
+        "Publishes a release build and runs it"
+      ],
+      "correct": 2,
+      "expl": "All three steps. Convenient, but it means a failure could be a restore, compile or runtime problem &mdash; read which stage the error came from."
+    },
+    {
+      "q": "A project has two files with top-level statements. Result?",
+      "opts": [
+        "Both run in sequence",
+        "A compile error",
+        "A warning; the first is used",
+        "The alphabetically first one runs"
+      ],
+      "correct": 1,
+      "expl": "The compiler needs exactly one entry point. Two compilation units with top-level statements is an error, not a warning."
+    },
+    {
+      "q": "Which command would you use to measure performance meaningfully?",
+      "opts": [
+        "dotnet run",
+        "dotnet build then dotnet run",
+        "dotnet run -c Release",
+        "dotnet watch run"
+      ],
+      "correct": 2,
+      "expl": "Debug is the default and disables optimisations while adding instrumentation. Timing a Debug build produces numbers that do not reflect production."
+    }
+  ],
+  "2": [
+    {
+      "q": "What does this print?",
+      "opts": [
+        "2",
+        "3",
+        "0",
+        "Compile error"
+      ],
+      "correct": 1,
+      "expl": "List is a reference type, so b holds a copy of the reference, not the list. Both names point at one object, so a.Count is 3.",
+      "code": "var a = new List<int> { 1, 2 };\nvar b = a;\nb.Add(3);\nConsole.WriteLine(a.Count);"
+    },
+    {
+      "q": "Which type should hold an account balance?",
+      "opts": [
+        "double",
+        "float",
+        "decimal",
+        "int"
+      ],
+      "correct": 2,
+      "expl": "decimal is base-10 and represents decimal fractions exactly. double is base-2 and introduces rounding error that compounds across many operations."
+    },
+    {
+      "q": "<code>var x = 5; x = \"hello\";</code> &mdash; what happens?",
+      "opts": [
+        "Works, var is dynamic",
+        "Compile error: x is int",
+        "Runtime exception",
+        "x becomes object"
+      ],
+      "correct": 1,
+      "expl": "var is compile-time type inference, not dynamic typing. x is int permanently. (The dynamic keyword exists and does defer to runtime, but that is not var.)"
+    },
+    {
+      "q": "What does <code>maybe!.Length</code> do when <code>maybe</code> is null?",
+      "opts": [
+        "Returns null",
+        "Returns 0",
+        "Throws NullReferenceException",
+        "Silently skips the line"
+      ],
+      "correct": 2,
+      "expl": "The ! operator only silences the compiler warning. It performs no check, so dereferencing null still throws at runtime. It converts a compile-time warning into a runtime crash."
+    },
+    {
+      "q": "Which cannot be a <code>const</code>?",
+      "opts": [
+        "const int Max = 3;",
+        "const string Name = \"abc\";",
+        "const DateTime Now = DateTime.UtcNow;",
+        "const double Pi = 3.14;"
+      ],
+      "correct": 2,
+      "expl": "const requires a compile-time constant. DateTime.UtcNow is evaluated at runtime, so it needs static readonly instead."
+    }
+  ],
+  "3": [
+    {
+      "q": "Why does <code>if (count)</code> fail to compile when count is an int?",
+      "opts": [
+        "Ints must be compared with ==",
+        "C# requires the condition to be bool",
+        "It needs parentheses",
+        "Only bools can be local variables"
+      ],
+      "correct": 1,
+      "expl": "C# has no truthiness. A condition must be of type bool, which removes the family of bugs that comes from implicit numeric-to-boolean conversion."
+    },
+    {
+      "q": "What does this print?",
+      "opts": [
+        "Negative items are removed",
+        "Nothing happens",
+        "InvalidOperationException is thrown",
+        "Compile error"
+      ],
+      "correct": 2,
+      "expl": "Modifying a collection during enumeration invalidates the enumerator and throws InvalidOperationException. Iterate a copy, or use list.RemoveAll(x => x < 0).",
+      "code": "foreach (var x in list)\n    if (x < 0) list.Remove(x);"
+    },
+    {
+      "q": "Which is true of C#'s switch statement but not C's or Java's?",
+      "opts": [
+        "It can switch on strings",
+        "Implicit fall-through is a compile error",
+        "It requires a default",
+        "It cannot use break"
+      ],
+      "correct": 1,
+      "expl": "Every non-empty case must end in break, return or throw. Stacking empty case labels is still allowed, but silently falling from one body into the next is not."
+    },
+    {
+      "q": "What is the main advantage of a switch expression over a switch statement?",
+      "opts": [
+        "It runs faster",
+        "It produces a value and the compiler checks exhaustiveness",
+        "It allows fall-through",
+        "It can match on types only"
+      ],
+      "correct": 1,
+      "expl": "Being an expression means it must yield a value on every path, so the compiler warns about unhandled cases. Adding a new enum member then surfaces every place you need to update."
+    },
+    {
+      "q": "What does <code>{ Source.Currency: \"NGN\", Amount: > 1000 }</code> match?",
+      "opts": [
+        "Any object with those property names",
+        "An object whose Source.Currency equals NGN and whose Amount exceeds 1000",
+        "A dictionary with those keys",
+        "Nothing — invalid syntax"
+      ],
+      "correct": 1,
+      "expl": "A property pattern tests the values of properties, including nested ones via dotted paths. All listed conditions must hold for the arm to match."
+    }
+  ],
+  "4": [
+    {
+      "q": "What is <code>value</code> inside a property setter?",
+      "opts": [
+        "A variable you must declare",
+        "A contextual keyword holding the incoming assignment",
+        "The previous value",
+        "The backing field"
+      ],
+      "correct": 1,
+      "expl": "value is supplied by the compiler and represents whatever is being assigned. You never declare it, and it only exists inside a setter (or an init accessor)."
+    },
+    {
+      "q": "Which allows a property to be set during construction but never afterwards?",
+      "opts": [
+        "{ get; set; }",
+        "{ get; private set; }",
+        "{ get; init; }",
+        "{ get; }"
+      ],
+      "correct": 2,
+      "expl": "init permits assignment in a constructor or object initialiser and forbids it afterwards. { get; } alone cannot be set by an object initialiser at all; private set allows changes from inside the class at any time."
+    },
+    {
+      "q": "What does <code>required</code> do?",
+      "opts": [
+        "Throws at runtime if unset",
+        "Makes the compiler reject construction that omits the property",
+        "Marks it non-nullable",
+        "Documents intent only"
+      ],
+      "correct": 1,
+      "expl": "It is a compile-time guarantee: object creation that does not set the property is a compile error. No runtime check and no constructor needed."
+    },
+    {
+      "q": "Two Account objects have identical property values. What does <code>a == b</code> return by default?",
+      "opts": [
+        "true",
+        "false",
+        "Compile error",
+        "Depends on ToString"
+      ],
+      "correct": 1,
+      "expl": "Classes use reference equality by default &mdash; equal only if they are the same object. To compare by value you override Equals and GetHashCode, or use a record."
+    },
+    {
+      "q": "Why is a <code>static int _counter</code> risky in a web API?",
+      "opts": [
+        "Statics are slow",
+        "It is shared across all concurrent requests and can race",
+        "It cannot be read from instance methods",
+        "It resets on every request"
+      ],
+      "correct": 1,
+      "expl": "There is one copy per process, shared by every request thread. Unsynchronised increments can interleave and produce duplicate or skipped values under load."
+    }
+  ],
+  "5": [
+    {
+      "q": "A base class has <code>public decimal Fee()</code> (not virtual). A derived class declares <code>public decimal Fee()</code>. What happens?",
+      "opts": [
+        "It overrides the base method",
+        "Compile error",
+        "It hides the base method; calls via a base reference run the base version",
+        "Both run in sequence"
+      ],
+      "correct": 2,
+      "expl": "Without virtual/override you get method hiding, not overriding. A base-typed reference calls the base implementation. The compiler warns and suggests the new keyword if hiding was intended."
+    },
+    {
+      "q": "Which is true of interfaces in C#?",
+      "opts": [
+        "They can hold instance fields",
+        "A class can implement many of them",
+        "They can define constructors",
+        "They support private state"
+      ],
+      "correct": 1,
+      "expl": "Single class inheritance, multiple interface implementation. Interfaces have no instance fields and no constructors &mdash; they describe a capability, not storage."
+    },
+    {
+      "q": "What does <code>a == b</code> return for two records with identical values?",
+      "opts": [
+        "false",
+        "true",
+        "Compile error",
+        "Only if you override Equals"
+      ],
+      "correct": 1,
+      "expl": "Records have generated value equality based on their components. This is the main behavioural difference from a class, which uses reference equality by default."
+    },
+    {
+      "q": "What does <code>var c = a with { Amount = 250m };</code> do?",
+      "opts": [
+        "Mutates a and returns it",
+        "Creates a copy of a with Amount changed, leaving a untouched",
+        "Compile error on records",
+        "Returns a reference to a"
+      ],
+      "correct": 1,
+      "expl": "The with expression performs non-destructive mutation: a new instance copying all members except those listed. The original is immutable and unchanged."
+    },
+    {
+      "q": "Which best fits an API request payload?",
+      "opts": [
+        "abstract class",
+        "static class",
+        "record",
+        "struct"
+      ],
+      "correct": 2,
+      "expl": "A request payload is data with no identity or lifecycle. A record gives value equality, immutability, a generated ToString and concise syntax &mdash; exactly what a DTO wants."
+    }
+  ],
+  "6": [
+    {
+      "q": "What does this print?",
+      "opts": [
+        "2",
+        "3",
+        "4",
+        "0"
+      ],
+      "correct": 1,
+      "expl": "Where is deferred. The query runs when Count() enumerates it, by which time the list holds 1,2,3,4 &mdash; so three items are greater than 1. Calling ToList() before the Add would have given 2.",
+      "code": "var nums = new List<int> { 1, 2, 3 };\nvar q = nums.Where(n => n > 1);\nnums.Add(4);\nConsole.WriteLine(q.Count());"
+    },
+    {
+      "q": "<code>map[\"missing\"]</code> on a Dictionary where the key is absent:",
+      "opts": [
+        "Returns null",
+        "Returns default(V)",
+        "Throws KeyNotFoundException",
+        "Adds the key"
+      ],
+      "correct": 2,
+      "expl": "The indexer throws on a missing key when reading. TryGetValue returns false and supplies default(V) via out. (Assigning through the indexer does add the key.)"
+    },
+    {
+      "q": "A loop calls <code>list.Contains(x)</code> on each of n items. Complexity?",
+      "opts": [
+        "O(n)",
+        "O(n log n)",
+        "O(n²)",
+        "O(1)"
+      ],
+      "correct": 2,
+      "expl": "List.Contains is O(n), inside an O(n) loop, so O(n&sup2;). Changing the collection to a HashSet makes Contains O(1) and the whole thing O(n) &mdash; usually a one-line fix."
+    },
+    {
+      "q": "Which does NOT force immediate execution?",
+      "opts": [
+        "ToList()",
+        "Count()",
+        "Select()",
+        "Any()"
+      ],
+      "correct": 2,
+      "expl": "Select is deferred &mdash; it describes a transformation. ToList, Count and Any all enumerate the sequence at once."
+    },
+    {
+      "q": "You look up a user by primary key and expect exactly one. Which is most appropriate?",
+      "opts": [
+        "First()",
+        "FirstOrDefault()",
+        "Single()",
+        "Take(1)"
+      ],
+      "correct": 2,
+      "expl": "Single states the assumption that exactly one row matches and throws if there are more &mdash; surfacing a data-integrity problem instead of silently taking the first. Use SingleOrDefault if zero matches is also legitimate."
+    }
+  ],
+  "7": [
+    {
+      "q": "What is wrong with <code>catch (Exception ex) { throw ex; }</code>?",
+      "opts": [
+        "It will not compile",
+        "It resets the stack trace to the catch block",
+        "It catches too narrowly",
+        "Nothing"
+      ],
+      "correct": 1,
+      "expl": "throw ex restarts the exception from this line, discarding the frames that show where the problem actually occurred. Bare throw; rethrows with the original trace intact."
+    },
+    {
+      "q": "A caller passes a negative amount to Deposit. Which exception fits best?",
+      "opts": [
+        "InvalidOperationException",
+        "ArgumentOutOfRangeException",
+        "NullReferenceException",
+        "Exception"
+      ],
+      "correct": 1,
+      "expl": "The argument itself is invalid and out of its permitted range. InvalidOperationException would be for a valid argument that is wrong for the object's current state."
+    },
+    {
+      "q": "What does <code>finally</code> guarantee?",
+      "opts": [
+        "It runs only if no exception occurred",
+        "It runs only if an exception occurred",
+        "It runs on success, on exception, and on early return",
+        "It replaces catch"
+      ],
+      "correct": 2,
+      "expl": "finally always runs on the way out of the block, which is why it is the right place to release resources. using is syntactic sugar over exactly this pattern."
+    },
+    {
+      "q": "Why prefer <code>when (ex.StatusCode == ...)</code> over an <code>if</code> inside the catch?",
+      "opts": [
+        "It is faster",
+        "If the filter is false the exception is never caught, leaving the stack intact for an outer handler",
+        "It allows multiple catches",
+        "if is not allowed in a catch"
+      ],
+      "correct": 1,
+      "expl": "A failed filter means the catch does not run at all, so the exception continues to propagate with its original stack and the debugger still breaks at the throw site. An if inside the catch has already unwound the stack."
+    },
+    {
+      "q": "Insufficient funds on a withdrawal is best modelled as:",
+      "opts": [
+        "An exception, since it is a failure",
+        "A normal return value or result type, since it is an expected outcome",
+        "A NullReferenceException",
+        "A silent no-op"
+      ],
+      "correct": 1,
+      "expl": "It is a predictable business outcome, not an exceptional condition. Using exceptions for expected results is expensive and obscures the normal path. (A domain exception is still reasonable at a lower layer if callers must react differently &mdash; the judgement is whether it is expected.)"
+    }
+  ],
+  "8": [
+    {
+      "q": "What is the main benefit of async/await in a web API?",
+      "opts": [
+        "Each request completes faster",
+        "Threads are freed while waiting on I/O, raising concurrent throughput",
+        "It parallelises CPU work automatically",
+        "It removes the need for locks"
+      ],
+      "correct": 1,
+      "expl": "An individual request is not faster &mdash; often marginally slower. The gain is that a thread is not held while waiting on I/O, so a fixed thread pool can serve many more simultaneous requests."
+    },
+    {
+      "q": "Why should you never write <code>async void</code>?",
+      "opts": [
+        "It does not compile",
+        "Exceptions cannot be caught by the caller and crash the process",
+        "It is slower than Task",
+        "It creates too many threads"
+      ],
+      "correct": 1,
+      "expl": "An async void method cannot be awaited, so the caller has no handle to observe completion or failure. Exceptions escape to the runtime and bring down the process. Event handlers are the one forced exception."
+    },
+    {
+      "q": "How long does this take, given each call is 200ms?",
+      "opts": [
+        "600ms",
+        "about 200ms",
+        "200ms per call, serialised",
+        "It deadlocks"
+      ],
+      "correct": 1,
+      "expl": "The calls start when invoked, not when awaited, so all three are in flight before WhenAll. Total time is roughly the slowest one. Awaiting each in turn instead would give 600ms.",
+      "code": "var a = GetAsync(1);\nvar b = GetAsync(2);\nvar c = GetAsync(3);\nawait Task.WhenAll(a, b, c);"
+    },
+    {
+      "q": "Which is the correct way to call an async method from a synchronous one?",
+      "opts": [
+        "Use .Result",
+        "Use .Wait()",
+        "Use .GetAwaiter().GetResult()",
+        "Make the calling method async and await"
+      ],
+      "correct": 3,
+      "expl": "All three blocking forms risk deadlock and waste a thread. The answer is async all the way up &mdash; change the caller's signature. If a framework boundary forbids it, that boundary is the problem to solve."
+    },
+    {
+      "q": "You wrap an HTTP call in <code>Task.Run</code>. What happens?",
+      "opts": [
+        "It becomes faster",
+        "A pool thread is occupied doing nothing but waiting",
+        "The call is cancelled automatically",
+        "Nothing changes"
+      ],
+      "correct": 1,
+      "expl": "Task.Run schedules work on a pool thread. For I/O there is no CPU work to schedule, so you have taken a thread out of the pool purely to wait &mdash; exactly what async avoids. Task.Run is for CPU-bound work."
+    }
+  ],
+  "9": [
+    {
+      "q": "In <code>Func&lt;string, int, bool&gt;</code>, what does the method return?",
+      "opts": [
+        "string",
+        "int",
+        "bool",
+        "void"
+      ],
+      "correct": 2,
+      "expl": "In Func the last type parameter is always the return type; the ones before it are parameters. So this takes a string and an int and returns a bool. Action has no return type parameter at all."
+    },
+    {
+      "q": "What does this print?",
+      "opts": [
+        "012",
+        "333",
+        "000",
+        "123"
+      ],
+      "correct": 1,
+      "expl": "All three lambdas captured the same variable i, not its value at the time. The loop finished with i equal to 3, so each prints 3. Copying into a per-iteration variable fixes it.",
+      "code": "var acts = new List<Action>();\nfor (int i = 0; i < 3; i++)\n    acts.Add(() => Console.Write(i));\nforeach (var a in acts) a();"
+    },
+    {
+      "q": "Which delegate type takes one argument and returns nothing?",
+      "opts": [
+        "Func<T>",
+        "Action<T>",
+        "Predicate<T>",
+        "Func<T,T>"
+      ],
+      "correct": 1,
+      "expl": "Action&lt;T&gt; takes a T and returns void. Func&lt;T&gt; takes nothing and returns a T. Predicate&lt;T&gt; takes a T and returns bool."
+    },
+    {
+      "q": "Why use <code>?.Invoke()</code> when raising an event?",
+      "opts": [
+        "It is faster",
+        "An event with no subscribers is null",
+        "It prevents exceptions in subscribers",
+        "It unsubscribes afterwards"
+      ],
+      "correct": 1,
+      "expl": "With no subscribers the backing delegate field is null, so a direct call throws NullReferenceException. The null-conditional invoke handles that case."
+    },
+    {
+      "q": "Injecting <code>Func&lt;DateTime&gt;</code> instead of calling DateTime.UtcNow directly mainly buys you:",
+      "opts": [
+        "Better performance",
+        "Thread safety",
+        "Testability — a test can control the time",
+        "Smaller memory use"
+      ],
+      "correct": 2,
+      "expl": "Code calling DateTime.UtcNow directly cannot be tested deterministically for anything time-dependent. Injecting the clock as a delegate lets a test supply a fixed value."
+    }
+  ],
+  "11": [
+    {
+      "q": "You inject a Scoped DbContext into a Singleton service. What happens?",
+      "opts": [
+        "It works fine",
+        "The DbContext is shared across all requests for the app's lifetime",
+        "A new DbContext is created per request anyway",
+        "The app refuses to compile"
+      ],
+      "correct": 1,
+      "expl": "A captive dependency. The singleton captures the first scoped instance and keeps it forever, so a request-scoped object outlives its request &mdash; causing disposed-object errors and data leaking between users."
+    },
+    {
+      "q": "Which lifetime should a repository normally use?",
+      "opts": [
+        "Singleton",
+        "Scoped",
+        "Transient",
+        "It does not matter"
+      ],
+      "correct": 1,
+      "expl": "Scoped &mdash; one instance per HTTP request. That matches the DbContext lifetime it usually depends on and keeps per-request state isolated. Scoped is the sensible default for application services."
+    },
+    {
+      "q": "What does middleware do if it never calls <code>next</code>?",
+      "opts": [
+        "Throws an exception",
+        "Short-circuits the pipeline and returns the response immediately",
+        "Skips to the endpoint",
+        "Retries the request"
+      ],
+      "correct": 1,
+      "expl": "Not calling next ends the pipeline there and the response travels back out. This is deliberate and is how rate limiting, caching and short-circuit auth failures are implemented."
+    },
+    {
+      "q": "<code>UseAuthorization()</code> is placed before <code>UseAuthentication()</code>. Result?",
+      "opts": [
+        "No effect",
+        "Authorisation runs before the user is identified, so authenticated endpoints reject valid requests",
+        "A startup error",
+        "Authentication is skipped entirely"
+      ],
+      "correct": 1,
+      "expl": "The pipeline runs in registration order. Authorisation needs an identity to evaluate; if authentication has not run yet there is none, so everything looks unauthenticated."
+    },
+    {
+      "q": "Where should a database password live?",
+      "opts": [
+        "appsettings.json",
+        "A comment in Program.cs",
+        "User secrets in development, environment variables or a secret store in production",
+        "A const in the DbContext"
+      ],
+      "correct": 2,
+      "expl": "appsettings.json is committed to source control. dotnet user-secrets keeps development values off disk in the repo, and production should read from the environment or a managed secret store."
+    }
+  ],
+  "12": [
+    {
+      "q": "A request arrives authenticated but the user lacks permission. Correct status?",
+      "opts": [
+        "400",
+        "401",
+        "403",
+        "404"
+      ],
+      "correct": 2,
+      "expl": "403 Forbidden &mdash; identity is known, permission is denied, and retrying with the same credentials will not help. 401 means not authenticated at all."
+    },
+    {
+      "q": "Why not bind a POST body directly to an EF entity?",
+      "opts": [
+        "It is slower",
+        "A client can set any property, including ones it should not",
+        "EF entities cannot be deserialised",
+        "It requires extra NuGet packages"
+      ],
+      "correct": 1,
+      "expl": "Over-posting. The model binder sets whatever properties appear in the JSON, so a client could include Balance or IsAdmin. DTOs define exactly what may be supplied."
+    },
+    {
+      "q": "With <code>[ApiController]</code>, what happens when a model fails data-annotation validation?",
+      "opts": [
+        "Your action runs with invalid data",
+        "You must check ModelState manually",
+        "A 400 with ValidationProblemDetails is returned before your action runs",
+        "It throws a 500"
+      ],
+      "correct": 2,
+      "expl": "[ApiController] adds automatic model-state validation. The 400 response with a per-field problem document is produced before your method is entered."
+    },
+    {
+      "q": "A POST successfully creates a resource. Best response?",
+      "opts": [
+        "200 with the object",
+        "201 with a Location header pointing at the new resource",
+        "204 with no body",
+        "202 Accepted"
+      ],
+      "correct": 1,
+      "expl": "201 Created with a Location header is the REST convention. CreatedAtAction generates the header from a named action. (202 is correct when creation is genuinely asynchronous and not yet complete.)"
+    },
+    {
+      "q": "Why handle exceptions in middleware rather than per controller?",
+      "opts": [
+        "It is the only way that works",
+        "Consistent error shape, one place to change, and internal messages cannot leak",
+        "Controllers cannot use try/catch",
+        "It improves throughput"
+      ],
+      "correct": 1,
+      "expl": "Centralising translation gives every endpoint the same error contract, keeps HTTP concerns out of business logic, and means you decide once what detail is safe to expose."
+    }
+  ],
+  "13": [
+    {
+      "q": "Which of these loads the entire table into memory?",
+      "opts": [
+        "a",
+        "b",
+        "both",
+        "neither"
+      ],
+      "correct": 1,
+      "expl": "In b, ToListAsync executes first, so every row crosses the network and the filter runs in your process. Everything before ToListAsync is translated to SQL; everything after is LINQ-to-objects.",
+      "code": "var a = await _db.Accounts.Where(x => x.Balance > 1000).ToListAsync();\nvar b = (await _db.Accounts.ToListAsync()).Where(x => x.Balance > 1000);"
+    },
+    {
+      "q": "Why must DbContext be Scoped rather than Singleton?",
+      "opts": [
+        "It is slower as a Singleton",
+        "It is not thread-safe and accumulates tracked entities",
+        "Singletons cannot be disposed",
+        "EF forbids it at compile time"
+      ],
+      "correct": 1,
+      "expl": "A DbContext represents one unit of work. It is not thread-safe, so concurrent requests corrupt it, and it tracks every entity it loads, so a long-lived one grows unboundedly and serves stale data."
+    },
+    {
+      "q": "1,000 accounts, and the loop reads <code>a.Transactions.Count</code> on each. How many queries?",
+      "opts": [
+        "1",
+        "2",
+        "1,001",
+        "1,000"
+      ],
+      "correct": 2,
+      "expl": "The N+1 problem: one query for the accounts plus one per account for its transactions. Include() makes it a single joined query, or project the count so the database computes it."
+    },
+    {
+      "q": "What does <code>SaveChangesAsync</code> guarantee about multiple changes?",
+      "opts": [
+        "Each is saved independently",
+        "They are applied in one transaction — all or none",
+        "Only the first is saved",
+        "Nothing; order is undefined"
+      ],
+      "correct": 1,
+      "expl": "SaveChanges wraps all pending changes in a single transaction. This is why a transfer touching two accounts plus a transaction record is atomic without you managing it."
+    },
+    {
+      "q": "When is <code>AsNoTracking()</code> appropriate?",
+      "opts": [
+        "Always",
+        "When you will modify the entities",
+        "For read-only queries",
+        "Only inside transactions"
+      ],
+      "correct": 2,
+      "expl": "Change tracking costs memory and time setting up snapshots. For a read-only query &mdash; a report, a list view &mdash; AsNoTracking skips it. Do not use it when you intend to modify and save the entities, because changes will not be detected."
+    }
+  ],
+  "14": [
+    {
+      "q": "Is the payload of a JWT encrypted?",
+      "opts": [
+        "Yes, with the signing key",
+        "No — it is base64-encoded and readable by anyone holding the token",
+        "Only the claims are",
+        "Only over HTTPS"
+      ],
+      "correct": 1,
+      "expl": "A JWT is signed, not encrypted. The signature proves integrity, not confidentiality. Anyone with the token can decode and read every claim, so nothing sensitive belongs in one."
+    },
+    {
+      "q": "Why can't you revoke a JWT?",
+      "opts": [
+        "You can, via the issuer",
+        "It is validated by signature alone, with no server lookup",
+        "Only the client can revoke it",
+        "Revocation needs HTTPS"
+      ],
+      "correct": 1,
+      "expl": "Stateless validation is the whole point &mdash; any server with the key can verify a token without consulting a store. The cost is that nothing can mark it invalid, so you use short lifetimes plus a revocable refresh token."
+    },
+    {
+      "q": "A user is authenticated but lacks the required claim. Which status?",
+      "opts": [
+        "400",
+        "401",
+        "403",
+        "500"
+      ],
+      "correct": 2,
+      "expl": "403 Forbidden &mdash; identity established, permission denied. 401 is for a missing or invalid token, where authenticating again could help."
+    },
+    {
+      "q": "Which is an acceptable password hash?",
+      "opts": [
+        "SHA-256",
+        "MD5 with a salt",
+        "bcrypt",
+        "AES encryption"
+      ],
+      "correct": 2,
+      "expl": "bcrypt is deliberately slow with a tunable work factor and a per-user salt. SHA-256 and MD5 are fast by design, which suits checksums and ruins password storage. Encryption is wrong in principle: anything reversible means a key compromise exposes every password."
+    },
+    {
+      "q": "What is wrong with <code>ValidateIssuerSigningKey = false</code>?",
+      "opts": [
+        "Nothing, it just speeds things up",
+        "Tokens with any signature are accepted, so anyone can forge one",
+        "It disables HTTPS",
+        "It only affects expiry"
+      ],
+      "correct": 1,
+      "expl": "Without verifying the signature against your key, a token's claims can be anything an attacker writes &mdash; including an admin role. This flag exists to be left alone."
+    }
+  ],
+  "15": [
+    {
+      "q": "Which log call supports querying by amount later?",
+      "opts": [
+        "A",
+        "B",
+        "Both",
+        "Neither"
+      ],
+      "correct": 1,
+      "expl": "B keeps the message template constant and attaches Amount as a structured field, so an aggregator can group identical events and filter on the value. A produces a unique string each time and nothing queryable.",
+      "code": "A: _logger.LogInformation($\"Transfer of {amount} done\");\nB: _logger.LogInformation(\"Transfer of {Amount} done\", amount);"
+    },
+    {
+      "q": "Log placeholders are matched to arguments by:",
+      "opts": [
+        "Name",
+        "Position",
+        "Type",
+        "Alphabetical order"
+      ],
+      "correct": 1,
+      "expl": "Positionally. The names are for the output and for querying, not for binding &mdash; so swapping two arguments silently mislabels both values."
+    },
+    {
+      "q": "Which is correct for logging an exception?",
+      "opts": [
+        "LogError(ex.Message)",
+        "LogError(\"failed: \" + ex)",
+        "LogError(ex, \"Transfer {Ref} failed\", reference)",
+        "LogError(\"{Ex}\", ex)"
+      ],
+      "correct": 2,
+      "expl": "The exception is the first argument with no matching placeholder, which preserves the full stack trace. ex.Message alone discards the stack and is often unhelpful or empty."
+    },
+    {
+      "q": "Why should liveness not check the database?",
+      "opts": [
+        "It is too slow",
+        "A database blip would make the orchestrator kill healthy instances",
+        "Databases have their own checks",
+        "It would log too much"
+      ],
+      "correct": 1,
+      "expl": "Liveness answers 'is this process working'. If it fails on a dependency outage, every instance is restarted during exactly the incident when you need them &mdash; converting a degradation into an outage. Dependency checks belong in readiness."
+    },
+    {
+      "q": "<code>_logger.LogDebug(\"Request: {Request}\", request)</code> is risky because:",
+      "opts": [
+        "Debug is disabled in production",
+        "Serialising the object writes every field, including sensitive ones",
+        "It is slow",
+        "Objects cannot be logged"
+      ],
+      "correct": 1,
+      "expl": "The whole object is serialised, so any PII, card number or token it holds lands in the log file. Log the specific named fields you actually need instead."
+    }
+  ],
+  "16": [
+    {
+      "q": "You need the same test to run against five different input values. Use:",
+      "opts": [
+        "Five [Fact] methods",
+        "[Theory] with [InlineData]",
+        "A loop inside one [Fact]",
+        "[ClassData] only"
+      ],
+      "correct": 1,
+      "expl": "A Theory with InlineData reports each case as its own test, so you see exactly which input failed. A loop inside one Fact stops at the first failure and tells you less."
+    },
+    {
+      "q": "Why is mocking <code>DbContext</code> directly a bad idea?",
+      "opts": [
+        "Moq cannot mock it",
+        "It is slow",
+        "Tests end up asserting your assumptions about EF rather than real behaviour",
+        "It requires a licence"
+      ],
+      "correct": 2,
+      "expl": "You do not own EF's semantics &mdash; tracking, deferred execution, SQL translation. A mock encodes what you think it does. Wrap it behind your own interface, or use an integration test against a real provider."
+    },
+    {
+      "q": "xUnit creates a new instance of the test class:",
+      "opts": [
+        "Once per class",
+        "Once per test method",
+        "Once per assembly",
+        "Only when IDisposable is implemented"
+      ],
+      "correct": 1,
+      "expl": "Per test. That is why the constructor works as setup and why no state leaks between tests. Shared expensive setup is opted into explicitly with IClassFixture."
+    },
+    {
+      "q": "Which is the most valuable test for a payment service?",
+      "opts": [
+        "A successful transfer returns true",
+        "A property setter stores the value",
+        "A timed-out core banking call does not debit twice",
+        "The constructor does not throw"
+      ],
+      "correct": 2,
+      "expl": "The failure paths are both the hardest to produce by hand and where the costly bugs live. The happy path is usually exercised constantly by ordinary use; the timeout-retry-double-debit case is not."
+    },
+    {
+      "q": "A test breaks when you rename a private method, with behaviour unchanged. That means:",
+      "opts": [
+        "The test is thorough",
+        "The test is coupled to implementation rather than behaviour",
+        "The rename was wrong",
+        "Coverage dropped"
+      ],
+      "correct": 1,
+      "expl": "Tests should assert what the code does, not how. One that breaks on an internal rename makes refactoring expensive, which is the opposite of what a test suite is for."
+    }
+  ]
+}

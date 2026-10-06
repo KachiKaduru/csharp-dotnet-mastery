@@ -1,0 +1,124 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Give three reasons not to expose EF entities through your API. What is the difference between 401 and 403?</div>
+<h2 id="h-13-0">1. The DbContext</h2>
+<div class="code-label">AppDbContext.cs</div>
+<pre><code class="language-csharp">public class AppDbContext : DbContext
+{
+    public AppDbContext(DbContextOptions&lt;AppDbContext&gt; options) : base(options) { }
+
+    public DbSet&lt;Account&gt; Accounts =&gt; Set&lt;Account&gt;();
+    public DbSet&lt;Transaction&gt; Transactions =&gt; Set&lt;Transaction&gt;();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+        b.Entity&lt;Account&gt;(e =&gt;
+        {
+            e.HasKey(a =&gt; a.Id);
+            e.Property(a =&gt; a.Number).IsRequired().HasMaxLength(20);
+            e.HasIndex(a =&gt; a.Number).IsUnique();
+            e.Property(a =&gt; a.Balance).HasPrecision(18, 2);     // money: always set this
+            e.HasMany(a =&gt; a.Transactions)
+             .WithOne(t =&gt; t.Account)
+             .HasForeignKey(t =&gt; t.AccountId);
+        });
+    }
+}
+
+// registration — Scoped by default, which is what you want
+builder.Services.AddDbContext&lt;AppDbContext&gt;(o =&gt;
+    o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));</code></pre>
+<div class="callout warn">
+        <div class="cl-title">Always set precision on money columns</div>
+        Without <code>HasPrecision(18, 2)</code> the provider picks a default, which on SQL Server is
+        <code>decimal(18,2)</code> but elsewhere may silently truncate or round. EF warns about this at startup. Set it explicitly
+        on every monetary column.
+      </div>
+<h2 id="h-13-1">2. A DbContext Is A Unit Of Work</h2>
+<p>This is the mental model that makes everything else make sense. A <code>DbContext</code> <strong>tracks</strong> every entity it loads, notices what you change, and writes all of it when you call <code>SaveChangesAsync</code>.</p>
+<div class="code-label">no UPDATE statement anywhere</div>
+<pre><code class="language-csharp">var account = await _db.Accounts.FirstAsync(a =&gt; a.Number == number, ct);
+
+account.Balance += 500m;            // just a property assignment
+
+await _db.SaveChangesAsync(ct);     // EF works out the UPDATE and runs it</code></pre>
+<p>And because it is one unit of work, <strong><code>SaveChangesAsync</code> is a single transaction</strong>. Several changes either all commit or all roll back:</p>
+<div class="code-label">atomic by default</div>
+<pre><code class="language-csharp">source.Balance -= amount;
+target.Balance += amount;
+_db.Transactions.Add(new Transaction { /* ... */ });
+
+await _db.SaveChangesAsync(ct);     // all three, or none</code></pre>
+<p>That is why a <code>DbContext</code> is registered Scoped and must never be a Singleton: it is <em>per unit of work</em>, it is not thread-safe, and a long-lived one accumulates tracked entities until it becomes both slow and wrong.</p>
+<h2 id="h-13-2">3. Querying</h2>
+<div class="code-label">LINQ becomes SQL</div>
+<pre><code class="language-csharp">// translated to SQL and executed in the database
+var rich = await _db.Accounts
+    .Where(a =&gt; a.Balance &gt; 1_000_000m)
+    .OrderByDescending(a =&gt; a.Balance)
+    .Take(10)
+    .ToListAsync(ct);
+
+// projection — selects only these columns
+var names = await _db.Accounts
+    .Where(a =&gt; a.Status == AccountStatus.Active)
+    .Select(a =&gt; new { a.Number, a.Owner })
+    .ToListAsync(ct);
+
+// read-only: skip change tracking for a measurable speedup
+var report = await _db.Accounts.AsNoTracking().ToListAsync(ct);</code></pre>
+<div class="callout danger">
+        <div class="cl-title">Where the query runs is everything</div>
+        <pre style="margin:8px 0 0;"><code class="language-csharp">// GOOD: filter runs in SQL, 10 rows come back
+var a = await _db.Accounts.Where(x =&gt; x.Balance &gt; 1_000_000m).ToListAsync();
+
+// CATASTROPHIC: ToListAsync first, so the whole table is loaded into memory
+var b = (await _db.Accounts.ToListAsync()).Where(x =&gt; x.Balance &gt; 1_000_000m);</code></pre>
+        Both compile. Both return the same answer. The second pulls every row across the network and filters in your process —
+        fine against 50 rows in development, fatal against 5 million in production. <strong>Everything before
+        <code>ToListAsync</code> becomes SQL; everything after it is LINQ-to-objects.</strong>
+      </div>
+<h2 id="h-13-3">4. The N+1 Problem</h2>
+<p>The single most common EF performance bug, and it is invisible in a small dataset.</p>
+<div class="code-label">one query, then one per row</div>
+<pre><code class="language-csharp">var accounts = await _db.Accounts.ToListAsync(ct);          // 1 query
+
+foreach (var a in accounts)
+    Console.WriteLine(a.Transactions.Count);                 // 1 query EACH</code></pre>
+<p>1,000 accounts means 1,001 round trips. With lazy loading enabled it happens silently; without it you get a null or empty collection instead, which is at least noticeable.</p>
+<div class="code-label">the fix</div>
+<pre><code class="language-csharp">var accounts = await _db.Accounts
+    .Include(a =&gt; a.Transactions)        // one query with a join
+    .ToListAsync(ct);
+
+// better still if you only need a count — let the database count
+var summary = await _db.Accounts
+    .Select(a =&gt; new { a.Number, TxCount = a.Transactions.Count() })
+    .ToListAsync(ct);</code></pre>
+<div class="callout tip">
+        <div class="cl-title">Log the SQL in development</div>
+        <pre style="margin:8px 0 0;"><code class="language-csharp">o.UseSqlServer(cs).LogTo(Console.WriteLine, LogLevel.Information);</code></pre>
+        You cannot reason about an ORM you cannot see. Turn this on, exercise an endpoint, and count the queries.
+        N+1 is obvious the moment the SQL is visible, and invisible otherwise.
+      </div>
+<h2 id="h-13-4">5. Migrations</h2>
+<div class="code-label">terminal</div>
+<pre><code class="language-bash">dotnet tool install --global dotnet-ef
+
+dotnet ef migrations add AddAccountStatus    # generate from model changes
+dotnet ef database update                    # apply to the database
+dotnet ef migrations remove                  # undo the last, if not applied
+dotnet ef migrations script                  # SQL for a DBA to review</code></pre>
+<p>A migration is a generated, reviewable, source-controlled description of a schema change. <strong>Read every one before applying it</strong> — EF occasionally decides to drop and recreate a column, which is a data-loss event.</p>
+<div class="callout warn">
+        <div class="cl-title">Do not auto-migrate production</div>
+        <code>Database.Migrate()</code> at startup is convenient in development and dangerous in production: concurrent instances
+        race, and a failure happens during deployment with no rollback. Generate a script, review it, apply it as a deliberate
+        deployment step.
+      </div>
+<h2 id="h-13-5">6. When Not To Use EF</h2>
+<p>EF is excellent for the common case: load an object graph, change it, save it. It is the wrong tool for:</p>
+<ul>
+        <li><strong>Bulk operations.</strong> Updating a million rows one tracked entity at a time is pathological. Use <code>ExecuteUpdateAsync</code>, <code>ExecuteDeleteAsync</code>, or raw SQL.</li>
+        <li><strong>Complex reporting queries.</strong> Window functions, CTEs, hints. Write the SQL — use Dapper or <code>FromSqlRaw</code>.</li>
+        <li><strong>Stored procedures.</strong> Common in bank and enterprise systems, where the procedure is the contract.</li>
+      </ul>
+<p>Mixing is normal and sensible: EF for domain operations, Dapper or raw SQL for reports and bulk work. Reaching for raw SQL is not an admission of defeat.</p>

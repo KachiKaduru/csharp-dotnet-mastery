@@ -1,0 +1,119 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Why can an auto-property gain validation later without breaking callers? And what does <code>required</code> guarantee?</div>
+<h2 id="h-5-0">1. Inheritance</h2>
+<div class="code-label">base and derived</div>
+<pre><code class="language-csharp">public class Account
+{
+    public string Number { get; }
+    public decimal Balance { get; protected set; }
+
+    protected Account(string number) =&gt; Number = number;
+
+    public virtual decimal MonthlyFee() =&gt; 0m;         // virtual: can be replaced
+}
+
+public class CurrentAccount : Account
+{
+    public CurrentAccount(string number) : base(number) { }   // call the base constructor
+
+    public override decimal MonthlyFee() =&gt; 50m;              // override: replace it
+}</code></pre>
+<p>C# uses <code>:</code> for both inheritance and interface implementation, where Java uses <code>extends</code> and <code>implements</code>. <strong>Single inheritance only</strong> — one base class, any number of interfaces.</p>
+<h2 id="h-5-1">2. virtual, override, new and sealed</h2>
+<p>This is a real difference from Java and a common source of silent bugs for people arriving from it.</p>
+<div class="callout warn">
+        <div class="cl-title">In C#, methods are NOT virtual by default</div>
+        In Java every method can be overridden unless marked <code>final</code>. In C# the base method must be explicitly
+        <code>virtual</code> (or <code>abstract</code>), and the derived method must say <code>override</code>. Forget either and you do not
+        get an override — you get a <em>new, unrelated method that hides the base one</em>, and calls through a base-typed
+        reference will run the base version. The compiler warns; the warning is easy to miss.
+      </div>
+<table>
+        <tbody><tr><th>Keyword</th><th>Means</th></tr>
+        <tr><td><code>virtual</code></td><td>Derived classes may replace this</td></tr>
+        <tr><td><code>override</code></td><td>This replaces a virtual or abstract base member</td></tr>
+        <tr><td><code>abstract</code></td><td>No implementation here; derived classes <em>must</em> provide one</td></tr>
+        <tr><td><code>sealed</code></td><td>No further overriding (on a member) or inheriting (on a class)</td></tr>
+        <tr><td><code>new</code></td><td>Deliberately hide the base member. Rarely what you want</td></tr>
+      </tbody></table>
+<h2 id="h-5-2">3. Abstract Classes</h2>
+<div class="code-label">shared state plus a required hole</div>
+<pre><code class="language-csharp">public abstract class Payment
+{
+    public decimal Amount { get; init; }
+    public DateTime CreatedUtc { get; } = DateTime.UtcNow;    // shared state
+
+    public abstract string Process();                          // each type must supply this
+
+    public string Summary() =&gt; $"{GetType().Name} of {Amount:N2}: {Process()}";
+}
+
+public class CardPayment : Payment
+{
+    public required string Last4 { get; init; }
+    public override string Process() =&gt; $"charged card ending {Last4}";
+}</code></pre>
+<p>An abstract class cannot be instantiated. Use one when derived types genuinely <strong>share state or implementation</strong>, not merely a shape.</p>
+<h2 id="h-5-3">4. Interfaces</h2>
+<div class="code-label">a contract with no state</div>
+<pre><code class="language-csharp">public interface IPaymentProcessor
+{
+    Task&lt;bool&gt; ProcessAsync(decimal amount);
+    string Name { get; }
+}
+
+public class CardProcessor : IPaymentProcessor
+{
+    public string Name =&gt; "Card";
+    public Task&lt;bool&gt; ProcessAsync(decimal amount) =&gt; Task.FromResult(true);
+}</code></pre>
+<p>Interface names conventionally begin with <code>I</code> — a convention, not a rule, but universal in .NET.</p>
+<table>
+        <tbody><tr><th></th><th>Abstract class</th><th>Interface</th></tr>
+        <tr><td>Fields / state</td><td>Yes</td><td>No</td></tr>
+        <tr><td>Constructors</td><td>Yes</td><td>No</td></tr>
+        <tr><td>How many per type</td><td>One</td><td>Many</td></tr>
+        <tr><td>Access modifiers on members</td><td>Yes</td><td>Members are public</td></tr>
+        <tr><td>Use when</td><td>Types share implementation</td><td>Types share a capability</td></tr>
+      </tbody></table>
+<div class="callout concept">
+        <div class="cl-title">The practical rule</div>
+        <strong>Prefer interfaces and composition.</strong> Inheritance couples a derived type to its base permanently, and deep
+        hierarchies become difficult to change precisely because the coupling is invisible at the call site. Interfaces give you the
+        polymorphism without the coupling — which is also what makes code testable, since you can substitute a fake implementation.
+        Reach for an abstract class only when there is real shared implementation to inherit.
+      </div>
+<h2 id="h-5-4">5. Records</h2>
+<p>A <code>record</code> is a class the compiler writes for you, designed for data. One line replaces about forty:</p>
+<div class="code-label">records</div>
+<pre><code class="language-csharp">public record Money(decimal Amount, string Currency);
+
+var a = new Money(100m, "NGN");
+var b = new Money(100m, "NGN");
+
+a == b                  // TRUE — value equality, generated for you
+Console.WriteLine(a);   // Money { Amount = 100, Currency = NGN }
+
+var c = a with { Amount = 250m };   // copy with one change; a is untouched</code></pre>
+<p>The compiler generates a constructor, read-only properties, <code>Equals</code>, <code>GetHashCode</code>, <code>ToString</code>, and the <code>with</code> expression — all correct, all consistent with each other.</p>
+<table>
+        <tbody><tr><th>Use a</th><th>When</th></tr>
+        <tr><td><code>record</code></td><td>The type <em>is</em> its data: DTOs, API requests and responses, events, value objects, configuration</td></tr>
+        <tr><td><code>class</code></td><td>The type has identity and behaviour that changes over time: a service, a repository, an entity whose balance mutates</td></tr>
+        <tr><td><code>struct</code></td><td>Small, short-lived values where allocation matters. Measure before choosing this</td></tr>
+      </tbody></table>
+<div class="callout tip">
+        <div class="cl-title">This is where the equals/hashCode problem goes away</div>
+        The previous page warned that <code>Equals</code> and <code>GetHashCode</code> must agree or collections lose your objects.
+        A record generates both from the same components, so they cannot disagree. For value-like types, using a record is not
+        just less typing — it eliminates the bug.
+      </div>
+<p>You can add members to a record like any type, and validate in the body:</p>
+<div class="code-label">a record with behaviour</div>
+<pre><code class="language-csharp">public record Money(decimal Amount, string Currency)
+{
+    public bool IsZero =&gt; Amount == 0m;
+
+    public Money Add(Money other) =&gt; other.Currency != Currency
+        ? throw new InvalidOperationException("Currency mismatch")
+        : new Money(Amount + other.Amount, Currency);
+}</code></pre>

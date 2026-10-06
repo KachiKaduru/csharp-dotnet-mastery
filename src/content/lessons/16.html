@@ -1,0 +1,142 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Why does interpolation defeat structured logging? Where does the exception go in a <code>LogError</code> call?</div>
+<h2 id="h-16-0">1. A Test</h2>
+<div class="code-label">xUnit</div>
+<pre><code class="language-csharp">public class AccountTests
+{
+    [Fact]
+    public void Withdraw_WithInsufficientFunds_Throws()
+    {
+        // Arrange
+        var account = new Account("ACC1", opening: 100m);
+
+        // Act + Assert
+        var ex = Assert.Throws&lt;InvalidOperationException&gt;(
+            () =&gt; account.Withdraw(500m));
+
+        Assert.Contains("Insufficient", ex.Message);
+        Assert.Equal(100m, account.Balance);     // unchanged — the important part
+    }
+}</code></pre>
+<p>Name tests so a failure report reads as a sentence. <code>MethodName_Scenario_ExpectedResult</code> is the common convention, and it means the CI output tells you what broke without opening the file.</p>
+<table>
+        <tbody><tr><th>xUnit</th><th>Purpose</th></tr>
+        <tr><td><code>[Fact]</code></td><td>A test with no parameters</td></tr>
+        <tr><td><code>[Theory]</code> + <code>[InlineData]</code></td><td>The same test over several inputs</td></tr>
+        <tr><td>Constructor</td><td>Setup — runs before <em>each</em> test</td></tr>
+        <tr><td><code>IDisposable.Dispose</code></td><td>Teardown</td></tr>
+        <tr><td><code>IClassFixture&lt;T&gt;</code></td><td>Shared expensive setup across a class</td></tr>
+      </tbody></table>
+<p>xUnit creates a new instance of the test class for every test, so there is no shared state to leak between them. That is a deliberate design difference from NUnit and MSTest.</p>
+<h2 id="h-16-1">2. Theories — One Test, Many Cases</h2>
+<div class="code-label">table-driven</div>
+<pre><code class="language-csharp">[Theory]
+[InlineData(0)]
+[InlineData(-1)]
+[InlineData(-100.50)]
+public void Deposit_WithNonPositiveAmount_Throws(decimal amount)
+{
+    var account = new Account("ACC1");
+    Assert.Throws&lt;ArgumentOutOfRangeException&gt;(() =&gt; account.Deposit(amount));
+}
+
+[Theory]
+[InlineData(100, 0.015, 1.50)]
+[InlineData(1000, 0.015, 15.00)]
+[InlineData(0, 0.015, 0)]
+public void Fee_IsCalculatedCorrectly(decimal amount, decimal rate, decimal expected)
+{
+    Assert.Equal(expected, FeeCalculator.Calculate(amount, rate));
+}</code></pre>
+<p>Each case is reported as a separate test, so you see exactly which input failed. This is the cheapest way to cover boundaries — zero, negative, maximum, empty, null.</p>
+<h2 id="h-16-2">3. Moq — Faking Dependencies</h2>
+<div class="code-label">isolating the unit under test</div>
+<pre><code class="language-csharp">[Fact]
+public async Task Transfer_WhenCoreTimesOut_DoesNotDebitTwice()
+{
+    // Arrange
+    var core = new Mock&lt;ICoreBankingClient&gt;();
+    core.Setup(c =&gt; c.SendAsync(It.IsAny&lt;TransferRequest&gt;(), It.IsAny&lt;CancellationToken&gt;()))
+        .ThrowsAsync(new TimeoutException());
+
+    var accounts = new Mock&lt;IAccountRepository&gt;();
+    var service = new TransferService(core.Object, accounts.Object,
+                                      NullLogger&lt;TransferService&gt;.Instance);
+
+    // Act
+    await Assert.ThrowsAsync&lt;TimeoutException&gt;(
+        () =&gt; service.TransferAsync(request, default));
+
+    // Assert — verify the interaction, not just the result
+    accounts.Verify(a =&gt; a.DebitAsync(It.IsAny&lt;string&gt;(), It.IsAny&lt;decimal&gt;(),
+                                      It.IsAny&lt;CancellationToken&gt;()),
+                    Times.Once);
+}</code></pre>
+<table>
+        <tbody><tr><th>Moq</th><th>Does</th></tr>
+        <tr><td><code>Setup(...).Returns(x)</code></td><td>Define a return value</td></tr>
+        <tr><td><code>.ReturnsAsync(x)</code></td><td>Same, for a <code>Task&lt;T&gt;</code></td></tr>
+        <tr><td><code>.ThrowsAsync(ex)</code></td><td>Simulate a failure — often the most valuable test you can write</td></tr>
+        <tr><td><code>It.IsAny&lt;T&gt;()</code></td><td>Match any argument</td></tr>
+        <tr><td><code>It.Is&lt;T&gt;(x =&gt; ...)</code></td><td>Match arguments satisfying a predicate</td></tr>
+        <tr><td><code>Verify(..., Times.Once)</code></td><td>Assert a call happened exactly once</td></tr>
+      </tbody></table>
+<div class="callout tip">
+        <div class="cl-title">The tests worth writing are the failure tests</div>
+        Anyone can test that a transfer succeeds. The valuable tests are the ones you cannot easily produce by hand: the core
+        times out, the database throws mid-operation, the response is malformed, the same request arrives twice.
+        Mocks exist primarily so you can simulate the failures that are hard to arrange for real.
+      </div>
+<div class="callout warn">
+        <div class="cl-title">Do not mock what you do not own</div>
+        Mocking <code>HttpClient</code>, <code>DbContext</code> or a third-party SDK produces brittle tests that assert your
+        assumptions about someone else's library rather than its behaviour. Wrap it in your own thin interface and mock that —
+        or test against the real thing in an integration test.
+      </div>
+<h2 id="h-16-3">4. Integration Tests</h2>
+<p>Unit tests check a class. Integration tests check that the pieces actually fit — routing, model binding, DI wiring, serialisation, middleware. In ASP.NET Core they are genuinely easy:</p>
+<div class="code-label">the whole app, in memory</div>
+<pre><code class="language-csharp">public class AccountsApiTests : IClassFixture&lt;WebApplicationFactory&lt;Program&gt;&gt;
+{
+    private readonly HttpClient _client;
+
+    public AccountsApiTests(WebApplicationFactory&lt;Program&gt; factory)
+        =&gt; _client = factory.CreateClient();
+
+    [Fact]
+    public async Task Get_UnknownAccount_Returns404()
+    {
+        var response = await _client.GetAsync("/api/accounts/does-not-exist");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_WithBlankOwner_Returns400WithFieldError()
+    {
+        var response = await _client.PostAsJsonAsync("/api/accounts",
+            new { owner = "", currency = "NGN", opening = 100 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync&lt;ValidationProblemDetails&gt;();
+        Assert.Contains("Owner", problem!.Errors.Keys);
+    }
+}</code></pre>
+<p><code>WebApplicationFactory&lt;Program&gt;</code> boots your real application in memory — real DI, real middleware, real routing — with no network and no deployment. Override registrations to swap the database for an in-memory or containerised one.</p>
+<h2 id="h-16-4">5. What To Test, And What Not To</h2>
+<table>
+        <tbody><tr><th>Test this</th><th>Do not bother</th></tr>
+        <tr><td>Business rules and calculations</td><td>Auto-properties and trivial getters</td></tr>
+        <tr><td>Boundaries: zero, negative, maximum, empty, null</td><td>Framework behaviour — that <code>[Required]</code> works</td></tr>
+        <tr><td>Error paths and failure handling</td><td>Third-party library internals</td></tr>
+        <tr><td>Anything that has broken before</td><td>Implementation details that will change</td></tr>
+        <tr><td>Contracts at a boundary — status codes, response shape</td><td>Private methods directly</td></tr>
+      </tbody></table>
+<div class="callout concept">
+        <div class="cl-title">Test behaviour, not implementation</div>
+        A test that asserts <em>what the code does</em> survives refactoring. A test that asserts <em>how it does it</em> breaks
+        every time you tidy anything, and a suite like that stops being a safety net and becomes a reason not to improve the code.
+        If renaming a private method breaks a test, that test was coupled to the wrong thing.
+        <br/><br/>
+        The practical check: <strong>could this test still pass if I rewrote the internals and kept the behaviour?</strong>
+        If not, it is testing the wrong layer.
+      </div>
+<p>On coverage: it measures lines executed, not correctness. A hundred percent coverage with no assertions proves nothing, and chasing the last few percent usually means testing generated code. Use it to find <em>untested areas</em>, never as a target.</p>

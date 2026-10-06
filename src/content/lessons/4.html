@@ -1,0 +1,137 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What is a switch expression, and why does the compiler warn when its arms are not exhaustive?</div>
+<h2 id="h-4-0">1. A Class</h2>
+<div class="code-label">Account.cs</div>
+<pre><code class="language-csharp">public class Account
+{
+    private decimal _balance;                 // field: the actual storage
+
+    public string Number { get; }             // property, read-only
+    public string Owner { get; set; }         // property, read-write
+
+    public Account(string number, string owner, decimal opening)
+    {
+        Number = number;
+        Owner = owner;
+        _balance = opening;
+    }
+
+    public decimal Balance =&gt; _balance;       // computed property
+
+    public void Deposit(decimal amount)
+    {
+        if (amount &lt;= 0) throw new ArgumentOutOfRangeException(nameof(amount));
+        _balance += amount;
+    }
+}
+
+var acct = new Account("0123456789", "Ada", 5000m);
+acct.Deposit(500m);
+Console.WriteLine(acct.Balance);   // 5500</code></pre>
+<p>Conventions worth adopting now because every C# codebase uses them: <strong>PascalCase</strong> for types, methods and properties; <strong>camelCase</strong> for locals and parameters; <strong><code>_underscoreCamelCase</code></strong> for private fields. Unlike Java, method names are capitalised.</p>
+<h2 id="h-4-1">2. Properties — The Important Part</h2>
+<p>Java convention is a private field plus <code>getBalance()</code> and <code>setBalance()</code>. C# makes this a language feature, which means <strong>you can start with a plain property and add logic later without changing a single caller</strong>.</p>
+<div class="code-label">the progression</div>
+<pre><code class="language-csharp">// 1. auto-property: compiler generates the hidden backing field
+public string Owner { get; set; }
+
+// 2. same public shape, now with validation — callers unchanged
+private string _owner = "";
+public string Owner
+{
+    get =&gt; _owner;
+    set =&gt; _owner = string.IsNullOrWhiteSpace(value)
+        ? throw new ArgumentException("Owner is required")
+        : value.Trim();
+}
+
+// 3. computed — no storage at all
+public bool IsOverdrawn =&gt; _balance &lt; 0;</code></pre>
+<p><code>value</code> is a contextual keyword inside a setter — it is the incoming assignment. You never declare it.</p>
+<div class="callout concept">
+        <div class="cl-title">Why this matters for design</div>
+        In Java, exposing a public field and later needing validation is a breaking change, so the defensive habit is to write
+        getters and setters for everything up front. In C# a property <em>is</em> the public surface, so you write
+        <code>{ get; set; }</code> and add behaviour behind it whenever you actually need it. Less ceremony, same encapsulation.
+      </div>
+<table>
+        <tbody><tr><th>Form</th><th>Meaning</th></tr>
+        <tr><td><code>{ get; set; }</code></td><td>Read and write</td></tr>
+        <tr><td><code>{ get; }</code></td><td>Settable only in the constructor or an initialiser</td></tr>
+        <tr><td><code>{ get; private set; }</code></td><td>Public read, writable only inside the class</td></tr>
+        <tr><td><code>{ get; init; }</code></td><td>Settable only during object construction — then frozen</td></tr>
+        <tr><td><code>=&gt; expression</code></td><td>Computed on every read, no storage</td></tr>
+      </tbody></table>
+<h2 id="h-4-2">3. Constructors and Object Initialisers</h2>
+<div class="code-label">three ways to build an object</div>
+<pre><code class="language-csharp">// classic constructor
+public Account(string number) =&gt; Number = number;
+
+// primary constructor (C# 12) — parameters available throughout the class body
+public class Customer(string name, string email)
+{
+    public string Name { get; } = name;
+    public string Email { get; } = email;
+}
+
+// object initialiser — set properties after construction, in one expression
+var c = new Customer("Ada", "ada@example.com")
+{
+    // any settable property can go here
+};
+
+// required: compiler enforces it was set, without needing a constructor
+public class Config
+{
+    public required string ConnectionString { get; init; }
+    public int Timeout { get; init; } = 30;
+}
+
+var cfg = new Config { ConnectionString = "..." };   // omit it and this will not compile</code></pre>
+<p><code>required</code> plus <code>init</code> is a very useful pairing: the compiler guarantees the property was supplied, and nothing can change it afterwards. It gives you immutability and validated construction without writing a constructor.</p>
+<div class="callout tip">
+        <div class="cl-title">Prefer constructors for invariants</div>
+        If an object is meaningless without certain values, take them as constructor parameters — then no code path can produce
+        an invalid instance. Object initialisers are convenient but run <em>after</em> the constructor, so validation inside the
+        constructor cannot see them.
+      </div>
+<h2 id="h-4-3">4. static</h2>
+<div class="code-label">belongs to the type, not an instance</div>
+<pre><code class="language-csharp">public class AccountNumberGenerator
+{
+    private static int _counter;                      // one copy, shared
+    public static int Issued =&gt; _counter;
+
+    public static string Next() =&gt; $"ACC{++_counter:D8}";
+}
+
+var n = AccountNumberGenerator.Next();    // called on the type
+
+// a static class cannot be instantiated — for pure helpers
+public static class MoneyFormatter
+{
+    public static string ToNaira(decimal amount) =&gt; $"₦{amount:N2}";
+}</code></pre>
+<div class="callout warn">
+        <div class="cl-title">Static mutable state is a trap</div>
+        <code>_counter</code> above is shared by every thread in the process. In a web application that means concurrent requests
+        racing on the same variable, producing duplicate account numbers under load. Static <em>methods</em> with no state are fine.
+        Static <em>mutable data</em> needs synchronisation, or it needs to not be static.
+      </div>
+<h2 id="h-4-4">5. ToString, and Printing Objects</h2>
+<div class="code-label">override it on anything you will log</div>
+<pre><code class="language-csharp">public override string ToString() =&gt; $"Account {Number} ({Owner}): {Balance:N2}";</code></pre>
+<p>The default <code>ToString()</code> prints the type name, which is useless in a log line. Override it on your domain types — but be deliberate: <strong>whatever you put in <code>ToString()</code> will end up in log files</strong>, so leave out anything sensitive.</p>
+<h2 id="h-4-5">6. Equality</h2>
+<p>By default, two class instances are equal only if they are the <em>same object</em>. For types that represent a value, that is usually wrong:</p>
+<div class="code-label">reference equality by default</div>
+<pre><code class="language-csharp">var a = new Account("0123456789", "Ada", 100m);
+var b = new Account("0123456789", "Ada", 100m);
+
+a == b        // false — different objects
+a.Equals(b)   // false — same reason</code></pre>
+<p>You can override <code>Equals</code> and <code>GetHashCode</code> to fix this, and <strong>they must agree</strong> — two objects that are equal must return the same hash code, or dictionaries and sets will lose them. The next page covers <code>record</code>, which generates both correctly and makes this problem mostly disappear.</p>
+<div class="callout">
+        <div class="cl-title">The contract, in one line</div>
+        Equal objects must have equal hash codes. Break that and <code>HashSet</code> will hold duplicates while
+        <code>Contains</code> returns false for an item that is demonstrably in there — with no exception to tell you.
+      </div>

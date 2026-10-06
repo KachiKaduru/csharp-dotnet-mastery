@@ -1,0 +1,133 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>From the previous page: what are the two compilation steps between <code>Program.cs</code> and running code, and what does the CLR do?</div>
+<h2 id="h-1-0">1. Check What You Have</h2>
+<div class="code-label">terminal</div>
+<pre><code class="language-bash">dotnet --version      # SDK version
+dotnet --list-sdks    # every SDK installed
+dotnet --list-runtimes
+dotnet --info         # everything, including the OS and architecture it detected</code></pre>
+<p>Install the <strong>SDK</strong>, not the runtime. The runtime only <em>runs</em> .NET apps; the SDK includes the compiler and the CLI, and contains a runtime anyway.</p>
+<div class="callout">
+        <div class="cl-title">SDK vs runtime</div>
+        A machine that only runs deployed apps needs the runtime. A machine you develop on needs the SDK.
+        If <code>dotnet --version</code> works but <code>dotnet build</code> complains about no SDK, you installed the wrong one.
+      </div>
+<h2 id="h-1-1">2. Your First Project</h2>
+<div class="code-label">terminal</div>
+<pre><code class="language-bash">dotnet new console -o HelloApp   # create a console project in ./HelloApp
+cd HelloApp
+dotnet run                       # restore, build, and run in one step</code></pre>
+<p>That is the whole loop. <code>dotnet run</code> does three things — restores NuGet packages, compiles, and executes — which is convenient and occasionally confusing, because a failure could come from any of the three.</p>
+<p>Useful templates:</p>
+<table>
+        <tbody><tr><th>Command</th><th>Produces</th></tr>
+        <tr><td><code>dotnet new console</code></td><td>Command-line app</td></tr>
+        <tr><td><code>dotnet new classlib</code></td><td>A library — compiles to a .dll, no entry point</td></tr>
+        <tr><td><code>dotnet new webapi</code></td><td>ASP.NET Core HTTP API</td></tr>
+        <tr><td><code>dotnet new xunit</code></td><td>Test project</td></tr>
+        <tr><td><code>dotnet new sln</code></td><td>A solution file to group projects</td></tr>
+        <tr><td><code>dotnet new list</code></td><td>Every template available</td></tr>
+      </tbody></table>
+<h2 id="h-1-2">3. What Got Generated</h2>
+<pre><code class="language-text">HelloApp/
+├── Program.cs          ← your code
+├── HelloApp.csproj     ← the project definition
+└── obj/ and bin/       ← build output. Never commit these</code></pre>
+<div class="code-label">HelloApp.csproj</div>
+<pre><code class="language-xml">&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;OutputType&gt;Exe&lt;/OutputType&gt;
+    &lt;TargetFramework&gt;net8.0&lt;/TargetFramework&gt;
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;
+  &lt;/PropertyGroup&gt;
+&lt;/Project&gt;</code></pre>
+<p>The <code>.csproj</code> is the equivalent of a <code>pom.xml</code>, and it is strikingly short because the SDK supplies sane defaults and <strong>every <code>.cs</code> file in the folder tree is included automatically</strong>. You do not list source files.</p>
+<table>
+        <tbody><tr><th>Setting</th><th>Meaning</th></tr>
+        <tr><td><code>OutputType</code></td><td><code>Exe</code> for a runnable app, <code>Library</code> for a .dll</td></tr>
+        <tr><td><code>TargetFramework</code></td><td>Which .NET version to build against — <code>net8.0</code>, <code>net9.0</code></td></tr>
+        <tr><td><code>Nullable</code></td><td>Nullable reference types. <strong>Leave this on</strong> — see the types page</td></tr>
+        <tr><td><code>ImplicitUsings</code></td><td>Adds common <code>using</code> directives automatically, which is why <code>Console</code> works with no using statement</td></tr>
+      </tbody></table>
+<h2 id="h-1-3">4. Program.cs and Top-Level Statements</h2>
+<p>A new console project gives you one line:</p>
+<div class="code-label">Program.cs — modern</div>
+<pre><code class="language-csharp">Console.WriteLine("Hello");</code></pre>
+<p>That is <strong>top-level statements</strong>. The compiler wraps it in a class with a <code>Main</code> method for you. Older code, and anything that needs explicit control, looks like this instead:</p>
+<div class="code-label">Program.cs — explicit, still valid</div>
+<pre><code class="language-csharp">namespace HelloApp;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Console.WriteLine("Hello");
+    }
+}</code></pre>
+<p>Both compile to effectively the same thing. Know the second form exists — you will meet it constantly in existing codebases and in older documentation.</p>
+<div class="callout warn">
+        <div class="cl-title">One restriction worth knowing</div>
+        A project can have <strong>only one</strong> file with top-level statements. The compiler needs exactly one entry point, and a second such file is a compile error rather than a warning.
+      </div>
+<h2 id="h-1-4">5. The Commands You Will Actually Use</h2>
+<div class="code-label">terminal</div>
+<pre><code class="language-bash">dotnet restore              # download NuGet packages
+dotnet build                # compile
+dotnet run                  # restore + build + run
+dotnet test                 # run tests
+dotnet clean                # delete bin/ and obj/
+dotnet publish -c Release   # self-contained output ready to deploy
+
+dotnet watch run            # rebuild and restart on every file save</code></pre>
+<p><code>dotnet watch run</code> is the one that changes your day. Save a file and the app restarts — and for ASP.NET Core it will often hot-reload without even restarting.</p>
+<div class="callout tip">
+        <div class="cl-title">Debug vs Release</div>
+        <code>Debug</code> is the default: no optimisation, full debug symbols, useful stack traces. <code>Release</code> optimises and strips debug detail.
+        Benchmark in Release only — timing a Debug build produces numbers that mean nothing.
+      </div>
+<h2 id="h-1-5">6. Solutions — Grouping Projects</h2>
+<p>One project is a unit of compilation. A <strong>solution</strong> (<code>.sln</code>) is just a list of projects that belong together, so you can build and test them as a set.</p>
+<div class="code-label">terminal</div>
+<pre><code class="language-bash">dotnet new sln -n MiniBank
+dotnet new classlib -o MiniBank.Core
+dotnet new webapi   -o MiniBank.Api
+dotnet new xunit    -o MiniBank.Tests
+
+dotnet sln add MiniBank.Core MiniBank.Api MiniBank.Tests
+
+# make Api and Tests able to use Core
+dotnet add MiniBank.Api/MiniBank.Api.csproj reference MiniBank.Core/MiniBank.Core.csproj
+dotnet add MiniBank.Tests/MiniBank.Tests.csproj reference MiniBank.Core/MiniBank.Core.csproj
+
+dotnet build    # from the solution folder: builds everything</code></pre>
+<p>That three-project shape — domain library, API, tests — is the conventional starting layout for a service, and worth getting used to early.</p>
+<h2 id="h-1-6">7. NuGet</h2>
+<div class="code-label">terminal</div>
+<pre><code class="language-bash">dotnet add package Serilog
+dotnet add package Dapper --version 2.1.35
+dotnet list package                    # what this project references
+dotnet list package --outdated
+dotnet remove package Serilog</code></pre>
+<p>The command edits your <code>.csproj</code>, adding a <code>PackageReference</code>:</p>
+<pre><code class="language-xml">&lt;ItemGroup&gt;
+  &lt;PackageReference Include="Serilog" Version="4.1.0" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+<p>Packages are cached per user, not per project — under <code>~/.nuget/packages</code>. The same role as the local Maven repository, and the same occasional need to clear it.</p>
+<h2 id="h-1-7">8. The Errors You Will Actually Hit</h2>
+<table>
+        <tbody><tr><th>Message</th><th>Cause</th><th>Fix</th></tr>
+        <tr><td><code>Couldn't find a project to run</code></td><td>Wrong directory, or no <code>.csproj</code> here</td><td><code>cd</code> into the project folder, or pass <code>--project</code></td></tr>
+        <tr><td><code>Only one compilation unit can have top-level statements</code></td><td>Two files with top-level statements</td><td>Keep one; wrap the other in a class</td></tr>
+        <tr><td><code>The type or namespace 'X' could not be found</code></td><td>Missing <code>using</code>, or missing package/reference</td><td>Add the using, or <code>dotnet add package</code> / <code>add reference</code></td></tr>
+        <tr><td><code>NETSDK1045: current SDK doesn't support targeting net9.0</code></td><td>Project targets a newer framework than your SDK</td><td>Install that SDK, or lower <code>TargetFramework</code></td></tr>
+        <tr><td><code>CS8618: non-nullable property must contain a non-null value</code></td><td><code>Nullable</code> is enabled and you left a reference uninitialised</td><td>Initialise it, mark it <code>?</code>, or use <code>required</code>. Do not disable nullable</td></tr>
+        <tr><td><code>Program does not contain a static 'Main' method</code></td><td><code>OutputType</code> is <code>Exe</code> with no entry point</td><td>Add top-level statements or a <code>Main</code>, or set <code>Library</code></td></tr>
+      </tbody></table>
+<h2 id="h-1-8">9. Do This Now</h2>
+<ol>
+        <li>Run <code>dotnet --info</code> and note your SDK version and target framework.</li>
+        <li>Create a console app, run it, and open the <code>.csproj</code>. Identify all four properties.</li>
+        <li>Rewrite <code>Program.cs</code> from top-level statements into an explicit <code>class Program</code> with <code>Main</code>. Confirm it still runs.</li>
+        <li>Build the three-project solution from section 6 and run <code>dotnet build</code> from the solution folder.</li>
+        <li>Add a package, look at what changed in the <code>.csproj</code>, then remove it.</li>
+      </ol>

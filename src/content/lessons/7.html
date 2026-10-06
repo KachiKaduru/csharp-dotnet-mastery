@@ -1,0 +1,118 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What is deferred execution, and which LINQ methods force a query to run immediately?</div>
+<h2 id="h-7-0">1. The Mechanics</h2>
+<div class="code-label">try / catch / finally</div>
+<pre><code class="language-csharp">try
+{
+    var result = ProcessTransfer(request);
+}
+catch (InsufficientFundsException ex)      // most specific first
+{
+    _logger.LogWarning(ex, "Declined transfer {Ref}", request.Reference);
+    return Declined(ex.Message);
+}
+catch (HttpRequestException ex)            // transport failure
+{
+    _logger.LogError(ex, "Core banking unreachable for {Ref}", request.Reference);
+    throw;                                 // cannot handle it here — pass it up
+}
+finally
+{
+    _metrics.RecordAttempt();              // runs whether or not it threw
+}</code></pre>
+<p>Catch blocks are tested top to bottom, so <strong>order from most specific to least</strong>. A <code>catch (Exception)</code> above a specific one makes the specific one unreachable — the compiler will tell you.</p>
+<p><code>finally</code> runs on success, on exception, and on an early <code>return</code>. It is for releasing things.</p>
+<h2 id="h-7-1">2. The Hierarchy You Need</h2>
+<table>
+        <tbody><tr><th>Exception</th><th>Means</th></tr>
+        <tr><td><code>ArgumentException</code></td><td>A parameter value is wrong</td></tr>
+        <tr><td><code>ArgumentNullException</code></td><td>A required parameter was null</td></tr>
+        <tr><td><code>ArgumentOutOfRangeException</code></td><td>A parameter is outside its valid range</td></tr>
+        <tr><td><code>InvalidOperationException</code></td><td>The call is wrong <em>for the current state</em> — e.g. withdrawing from an empty account</td></tr>
+        <tr><td><code>NullReferenceException</code></td><td>You dereferenced null. <strong>Always a bug</strong> — never catch this, fix it</td></tr>
+        <tr><td><code>KeyNotFoundException</code></td><td>Dictionary key absent</td></tr>
+        <tr><td><code>TimeoutException</code> / <code>TaskCanceledException</code></td><td>An operation did not finish in time</td></tr>
+        <tr><td><code>HttpRequestException</code></td><td>An HTTP call failed at the transport level</td></tr>
+      </tbody></table>
+<div class="callout">
+        <div class="cl-title">Argument or InvalidOperation?</div>
+        If the caller passed something wrong, it is an <code>Argument*</code> exception. If the arguments are fine but the object is
+        in the wrong state for this call, it is <code>InvalidOperationException</code>. Choosing correctly tells whoever reads the
+        log whether to look at the call site or at the sequence of operations.
+      </div>
+<h2 id="h-7-2">3. using — Deterministic Cleanup</h2>
+<p>Garbage collection handles memory, but not file handles, sockets or database connections. Anything holding one of those implements <code>IDisposable</code>, and <code>using</code> guarantees it is released.</p>
+<div class="code-label">three forms</div>
+<pre><code class="language-csharp">// classic block
+using (var conn = new SqlConnection(cs))
+{
+    conn.Open();
+}   // Dispose() called here, exception or not
+
+// declaration form (C# 8+) — disposed at the end of the enclosing scope
+using var conn = new SqlConnection(cs);
+conn.Open();
+
+// async disposal
+await using var conn = new SqlConnection(cs);</code></pre>
+<p><code>using</code> is a <code>try/finally</code> in disguise. A connection leaked in a loop will exhaust the pool and the symptom is a timeout, usually under load and never in testing.</p>
+<h2 id="h-7-3">4. Custom Exceptions</h2>
+<div class="code-label">a domain exception worth having</div>
+<pre><code class="language-csharp">public class InsufficientFundsException : Exception
+{
+    public string AccountNumber { get; }
+    public decimal Requested { get; }
+    public decimal Available { get; }
+
+    public InsufficientFundsException(string account, decimal requested, decimal available)
+        : base($"Account {account}: requested {requested:N2}, available {available:N2}")
+    {
+        AccountNumber = account;
+        Requested = requested;
+        Available = available;
+    }
+}</code></pre>
+<p>Write one when callers need to <strong>react differently</strong> to this failure, and carry the data they need to do so as properties. If nobody will ever catch it specifically, use a built-in type — a custom exception nobody distinguishes is just a longer name.</p>
+<h2 id="h-7-4">5. The Four Things Not To Do</h2>
+<div class="callout danger">
+        <div class="cl-title">1. Swallowing</div>
+        <pre style="margin:8px 0 0;"><code class="language-csharp">try { Process(); } catch { }     // never</code></pre>
+        The error is gone. No log, no signal, and the program carries on in a state you did not plan for. This is how a bug
+        survives for a year. If you genuinely must continue, log it and say why in a comment.
+      </div>
+<div class="callout danger">
+        <div class="cl-title">2. Losing the stack trace</div>
+        <pre style="margin:8px 0 0;"><code class="language-csharp">catch (Exception ex) { throw ex; }    // resets the trace to HERE
+catch (Exception ex) { throw; }        // preserves where it actually came from</code></pre>
+        <code>throw ex;</code> rewrites the origin to this line, discarding the frames below it — so the log points at your
+        catch block instead of at the bug. Bare <code>throw;</code> rethrows the original. If you need to add context, wrap it:
+        <code>throw new ProcessingException("...", ex);</code> and the original is preserved as <code>InnerException</code>.
+      </div>
+<div class="callout danger">
+        <div class="cl-title">3. Exceptions as control flow</div>
+        Expected outcomes are not exceptional. A customer having insufficient funds is a normal business result; use a return value
+        or a result type. Exceptions are expensive to throw and, more importantly, they hide the normal path from whoever reads the code.
+        The <code>Try...</code> pattern exists for exactly this.
+      </div>
+<div class="callout danger">
+        <div class="cl-title">4. Catching what you cannot handle</div>
+        Only catch an exception if you can do something useful — retry, substitute a default, add context, translate it for a caller.
+        Catching to log and continue, with no recovery, usually means the caller is now working with invalid data. Let it propagate to
+        a layer that can decide.
+      </div>
+<h2 id="h-7-5">6. Exception Filters</h2>
+<div class="code-label">when — catch conditionally</div>
+<pre><code class="language-csharp">try { await CallCoreBanking(); }
+catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
+{
+    await BackOffAndRetry();
+}
+catch (HttpRequestException ex) when (ex.StatusCode &gt;= HttpStatusCode.InternalServerError)
+{
+    FailOver();
+}</code></pre>
+<p>Subtle but real advantage over an <code>if</code> inside the catch: if the filter is false the exception is <strong>never caught</strong>, so the stack is left untouched for an outer handler and the debugger still breaks at the original throw site.</p>
+<h2 id="h-7-6">7. Where To Handle Things</h2>
+<p>The practical architecture: <strong>throw low, catch high.</strong> Domain code throws precise exceptions and does not catch. One place near the boundary — a middleware or a global handler — translates exceptions into responses.</p>
+<div class="code-label">one place, not fifty</div>
+<pre><code class="language-csharp">app.UseExceptionHandler(...);   // ASP.NET Core: covered on the API page</code></pre>
+<p>That keeps business logic free of HTTP concerns, guarantees consistent error responses, and means a new exception type does not require edits in every controller.</p>

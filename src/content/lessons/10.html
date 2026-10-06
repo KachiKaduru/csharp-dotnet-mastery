@@ -1,0 +1,84 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Before you start: can you explain, without notes, value vs reference types, what a record generates, deferred execution, and why <code>async void</code> is dangerous? Anything blank is what this project will expose.</div>
+<div class="callout concept">
+        <div class="cl-title">How to work this</div>
+        <strong>Build first, study second.</strong> Open an editor and start. Keep a gap log open beside you and write down every
+        time you look something up, hesitate, or write something you are not confident is idiomatic. That log — probably six
+        items, not twenty — is your actual revision list for the week.
+      </div>
+<h2 id="h-10-0">1. What You Are Building</h2>
+<p>A console application that manages accounts and transfers. No database, no web framework, no external packages.</p>
+<pre><code class="language-text">MiniBank
+=========
+1. Open account
+2. List accounts
+3. Deposit
+4. Withdraw
+5. Transfer
+6. Statement for an account
+7. Summary by currency
+8. Save and exit</code></pre>
+<h2 id="h-10-1">2. The Domain</h2>
+<p>Decide for each type whether it should be a <code>record</code>, a <code>class</code>, or an <code>enum</code> — and be able to say why.</p>
+<table>
+        <tbody><tr><th>Type</th><th>Holds</th><th>Think about</th></tr>
+        <tr><td><code>Money</code></td><td>Amount, currency</td><td>Value or identity? Should two of these with the same contents be equal?</td></tr>
+        <tr><td><code>Account</code></td><td>Number, owner, balance, status, opened date</td><td>Balance changes over time. What does that tell you?</td></tr>
+        <tr><td><code>Transaction</code></td><td>Reference, account, amount, kind, timestamp</td><td>Once recorded, should it ever change?</td></tr>
+        <tr><td><code>AccountStatus</code></td><td>Active, Dormant, Frozen, Closed</td><td>Why not a string?</td></tr>
+        <tr><td><code>TransactionKind</code></td><td>Deposit, Withdrawal, TransferIn, TransferOut</td><td>Same question</td></tr>
+      </tbody></table>
+<h2 id="h-10-2">3. Rules To Enforce</h2>
+<p>The point of this project is that <strong>invalid states should be unreachable</strong>, not merely checked for.</p>
+<ul>
+        <li>An account cannot exist without a number and an owner</li>
+        <li>A balance can never go negative — withdrawal and transfer must reject, not clamp</li>
+        <li>Deposits and withdrawals must be strictly positive</li>
+        <li>No transfer to the same account</li>
+        <li>No transfer between accounts of different currencies</li>
+        <li>A frozen or closed account rejects everything except a statement</li>
+        <li>Balance must only be changeable through the operations, never by assignment</li>
+        <li>Every balance change must produce a <code>Transaction</code> — the statement must always reconcile to the balance</li>
+      </ul>
+<div class="callout warn">
+        <div class="cl-title">The one that is harder than it looks</div>
+        A transfer touches two accounts. If the credit fails after the debit succeeded, you have destroyed money. Work out
+        how you will guarantee that a transfer either fully happens or fully does not — with no database transaction to lean on.
+        This is the central problem of financial software, and it is worth meeting now in miniature.
+      </div>
+<h2 id="h-10-3">4. What Each Part Exercises</h2>
+<table>
+        <tbody><tr><th>Feature</th><th>Forces you to use</th></tr>
+        <tr><td>Domain types</td><td>records vs classes, enums, <code>required</code>, <code>init</code>, properties with private setters</td></tr>
+        <tr><td>Menu loop</td><td>Control flow, <code>switch</code> expressions, <code>TryParse</code></td></tr>
+        <tr><td>Validation</td><td>Custom exceptions, guard clauses, <code>nameof</code></td></tr>
+        <tr><td>Account lookup</td><td><code>Dictionary</code>, <code>TryGetValue</code></td></tr>
+        <tr><td>Statement</td><td>LINQ filtering, ordering, running totals</td></tr>
+        <tr><td>Summary by currency</td><td><code>GroupBy</code>, <code>Sum</code>, projection</td></tr>
+        <tr><td>Save and load</td><td><code>System.Text.Json</code>, file I/O, <code>using</code></td></tr>
+        <tr><td>Save and load, properly</td><td><code>async Task</code>, <code>await</code>, cancellation</td></tr>
+        <tr><td>Fee strategy</td><td><code>Func&lt;decimal, decimal&gt;</code> — different fees per account type</td></tr>
+      </tbody></table>
+<h2 id="h-10-4">5. Add One Hard Constraint</h2>
+<p>Plain CRUD teaches CRUD. Pick <strong>one</strong> of these and do it properly — the constraint is where the learning is:</p>
+<ul>
+        <li><strong>Crash safety.</strong> Kill the process mid-transfer. On restart, the balances and the statement must still agree.</li>
+        <li><strong>Concurrency.</strong> Run 100 concurrent transfers between the same two accounts using <code>Task.WhenAll</code>. The total across both accounts must be unchanged at the end. Find out what a race condition actually looks like.</li>
+        <li><strong>Immutable history.</strong> Make <code>Transaction</code> genuinely append-only, and derive every balance from the transaction list rather than storing it. Then see what that costs you.</li>
+      </ul>
+<h2 id="h-10-5">6. Then Review It</h2>
+<p>When it works, go back through it and ask:</p>
+<ol>
+        <li>Can any code path produce an invalid <code>Account</code>? If yes, move validation into the constructor.</li>
+        <li>Is there any <code>public set</code> on a balance or a transaction? Remove it.</li>
+        <li>Did you use <code>decimal</code> everywhere money appears? Check every one.</li>
+        <li>Is there a <code>catch</code> that swallows? A <code>throw ex</code>? Fix both.</li>
+        <li>Is every <code>IDisposable</code> inside a <code>using</code>?</li>
+        <li>Does any method exceed about twenty lines? If so, what is it doing that should be separate?</li>
+        <li>Could you unit test the transfer logic without touching the console or the file system? If not, why not?</li>
+      </ol>
+<div class="callout tip">
+        <div class="cl-title">The last question is the important one</div>
+        If your business rules are tangled up with <code>Console.WriteLine</code> and file access, they are untestable —
+        and that is a design problem, not a testing problem. Separating decisions from I/O is the single most valuable
+        habit this project can teach you, and it is the foundation of everything in Week 2.
+      </div>

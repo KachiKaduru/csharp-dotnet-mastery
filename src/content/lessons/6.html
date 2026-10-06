@@ -1,0 +1,133 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What does a <code>record</code> generate for you, and why does that remove the Equals/GetHashCode hazard?</div>
+<h2 id="h-6-0">1. The Four You Will Use</h2>
+<div class="code-label">the essentials</div>
+<pre><code class="language-csharp">var list = new List&lt;string&gt; { "a", "b" };       // ordered, indexed, duplicates allowed
+list.Add("c");
+list[0];                                        // O(1) by index
+list.Contains("b");                             // O(n) — scans
+
+var map = new Dictionary&lt;string, decimal&gt;       // key → value, unique keys
+{
+    ["0123456789"] = 5000m,
+};
+map["0123456789"];                              // O(1)
+map.TryGetValue(key, out var balance);          // safe — no exception if absent
+
+var set = new HashSet&lt;string&gt; { "NGN", "USD" }; // unique, unordered
+set.Add("NGN");                                 // returns false — already present
+set.Contains("USD");                            // O(1)
+
+decimal[] fixedSize = new decimal[3];           // array: fixed length, fastest</code></pre>
+<div class="callout warn">
+        <div class="cl-title">Dictionary indexer vs TryGetValue</div>
+        <code>map["missing"]</code> throws <code>KeyNotFoundException</code>. <code>map.TryGetValue(k, out var v)</code>
+        returns false instead. Use the indexer only when a missing key is genuinely a bug; use <code>TryGetValue</code> whenever
+        absence is a normal possibility. Reaching for <code>ContainsKey</code> followed by the indexer does the lookup twice.
+      </div>
+<h2 id="h-6-1">2. Choosing One</h2>
+<table>
+        <tbody><tr><th>Need</th><th>Use</th><th>Why</th></tr>
+        <tr><td>Ordered items, index access</td><td><code>List&lt;T&gt;</code></td><td>The default. Append is amortised O(1)</td></tr>
+        <tr><td>Look up by key</td><td><code>Dictionary&lt;K,V&gt;</code></td><td>O(1) lookup</td></tr>
+        <tr><td>Uniqueness, fast membership</td><td><code>HashSet&lt;T&gt;</code></td><td>O(1) Contains</td></tr>
+        <tr><td>Fixed size, maximum speed</td><td><code>T[]</code></td><td>No growth overhead</td></tr>
+        <tr><td>Expose a read-only result</td><td><code>IReadOnlyList&lt;T&gt;</code></td><td>Callers cannot mutate your internals</td></tr>
+        <tr><td>Accept any sequence</td><td><code>IEnumerable&lt;T&gt;</code></td><td>Most permissive parameter type</td></tr>
+        <tr><td>Thread-safe</td><td><code>ConcurrentDictionary&lt;K,V&gt;</code></td><td>The others are not safe for concurrent writes</td></tr>
+      </tbody></table>
+<div class="callout concept">
+        <div class="cl-title">The habit worth forming</div>
+        <strong>Accept the most general type, return the most specific useful one.</strong> Take <code>IEnumerable&lt;T&gt;</code>
+        as a parameter so callers can pass anything; return <code>IReadOnlyList&lt;T&gt;</code> so callers get a usable result they
+        cannot corrupt. Returning your internal <code>List&lt;T&gt;</code> hands out a handle to your own state.
+      </div>
+<p>If <code>Contains</code> on a <code>List</code> appears inside a loop, you have an O(n²) algorithm. Switching that list to a <code>HashSet</code> usually makes it O(n) with no other change — the most common easy performance win in C#.</p>
+<h2 id="h-6-2">3. LINQ</h2>
+<p>LINQ is a set of extension methods over <code>IEnumerable&lt;T&gt;</code> that let you describe <em>what</em> you want instead of looping to get it.</p>
+<div class="code-label">the same task, twice</div>
+<pre><code class="language-csharp">// imperative
+var big = new List&lt;Account&gt;();
+foreach (var a in accounts)
+    if (a.Balance &gt; 1_000_000m) big.Add(a);
+big.Sort((x, y) =&gt; y.Balance.CompareTo(x.Balance));
+
+// LINQ
+var big = accounts
+    .Where(a =&gt; a.Balance &gt; 1_000_000m)
+    .OrderByDescending(a =&gt; a.Balance)
+    .ToList();</code></pre>
+<table>
+        <tbody><tr><th>Method</th><th>Does</th></tr>
+        <tr><td><code>Where</code></td><td>Filter</td></tr>
+        <tr><td><code>Select</code></td><td>Transform each item (map)</td></tr>
+        <tr><td><code>OrderBy</code> / <code>OrderByDescending</code> / <code>ThenBy</code></td><td>Sort</td></tr>
+        <tr><td><code>First</code> / <code>FirstOrDefault</code></td><td>One item — throws / returns default when none</td></tr>
+        <tr><td><code>Single</code> / <code>SingleOrDefault</code></td><td>Exactly one — throws if more than one</td></tr>
+        <tr><td><code>Any</code> / <code>All</code></td><td>Does any / do all match</td></tr>
+        <tr><td><code>Count</code> / <code>Sum</code> / <code>Min</code> / <code>Max</code> / <code>Average</code></td><td>Aggregate</td></tr>
+        <tr><td><code>GroupBy</code></td><td>Bucket by a key</td></tr>
+        <tr><td><code>Select(x =&gt; ...).SelectMany(...)</code></td><td>Flatten nested sequences</td></tr>
+        <tr><td><code>Distinct</code> / <code>Take</code> / <code>Skip</code></td><td>Deduplicate, paginate</td></tr>
+        <tr><td><code>ToList</code> / <code>ToArray</code> / <code>ToDictionary</code></td><td><strong>Execute</strong> and materialise</td></tr>
+      </tbody></table>
+<div class="callout">
+        <div class="cl-title">First vs Single</div>
+        <code>First</code> means "give me one, there may be others". <code>Single</code> means "there must be exactly one, and it is a
+        bug if not". Using <code>Single</code> expresses an assumption and will tell you loudly when the assumption breaks — which is
+        often what you want on a lookup by primary key.
+      </div>
+<h2 id="h-6-3">4. Deferred Execution — The Thing That Catches Everyone</h2>
+<p>Most LINQ operators do not run when you write them. They build a query and wait.</p>
+<div class="code-label">the surprise</div>
+<pre><code class="language-csharp">var numbers = new List&lt;int&gt; { 1, 2, 3 };
+var query = numbers.Where(n =&gt; n &gt; 1);   // nothing has executed yet
+
+numbers.Add(4);
+
+foreach (var n in query)
+    Console.WriteLine(n);                 // 2, 3, 4  — it saw the addition</code></pre>
+<p>The query is a <em>recipe</em>, re-evaluated every time you enumerate it. Two consequences:</p>
+<ul>
+        <li><strong>Results can change</strong> between building a query and using it, as above.</li>
+        <li><strong>Enumerating twice does the work twice.</strong> If the source is a database or an HTTP call, that is two round trips.</li>
+      </ul>
+<div class="code-label">the fix</div>
+<pre><code class="language-csharp">var results = numbers.Where(n =&gt; n &gt; 1).ToList();   // executes now, snapshot taken</code></pre>
+<p><code>ToList()</code>, <code>ToArray()</code>, <code>Count()</code>, <code>Sum()</code>, <code>First()</code> and <code>Any()</code> all force execution immediately. <code>Where</code>, <code>Select</code>, <code>OrderBy</code>, <code>Take</code> and <code>Skip</code> do not.</p>
+<div class="callout tip">
+        <div class="cl-title">The rule of thumb</div>
+        Keep it deferred while you are still composing. Call <code>ToList()</code> once, at the point you need the values —
+        and particularly before returning a query from a method, so the caller cannot accidentally re-execute it against a
+        connection you have already disposed.
+      </div>
+<h2 id="h-6-4">5. Grouping and Projection</h2>
+<div class="code-label">a realistic query</div>
+<pre><code class="language-csharp">var summary = transactions
+    .Where(t =&gt; t.Date &gt;= monthStart)
+    .GroupBy(t =&gt; t.Currency)
+    .Select(g =&gt; new
+    {
+        Currency = g.Key,
+        Count    = g.Count(),
+        Total    = g.Sum(t =&gt; t.Amount),
+        Largest  = g.Max(t =&gt; t.Amount)
+    })
+    .OrderByDescending(x =&gt; x.Total)
+    .ToList();
+
+foreach (var row in summary)
+    Console.WriteLine($"{row.Currency}: {row.Count} txns, {row.Total:N2}");</code></pre>
+<p><code>new { ... }</code> is an <strong>anonymous type</strong> — a compiler-generated class for a shape you need once. Useful inside a method; you cannot return one from a method with a declared type, so use a <code>record</code> when the shape needs to cross a boundary.</p>
+<h2 id="h-6-5">6. Query Syntax</h2>
+<p>There is a second, SQL-like syntax. It compiles to exactly the same calls:</p>
+<div class="code-label">both are identical after compilation</div>
+<pre><code class="language-csharp">var q = from t in transactions
+        where t.Amount &gt; 1000m
+        orderby t.Date descending
+        select t.Reference;
+
+var q = transactions
+        .Where(t =&gt; t.Amount &gt; 1000m)
+        .OrderByDescending(t =&gt; t.Date)
+        .Select(t =&gt; t.Reference);</code></pre>
+<p>Method syntax is far more common and composes better. Learn to <em>read</em> query syntax — it appears in older code and is genuinely nicer for complex joins — but write method syntax.</p>

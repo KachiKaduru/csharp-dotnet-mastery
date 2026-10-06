@@ -1,0 +1,164 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Name the three DI lifetimes. What is a captive dependency? What happens if middleware does not call <code>next</code>?</div>
+<h2 id="h-12-0">1. A Controller</h2>
+<div class="code-label">AccountsController.cs</div>
+<pre><code class="language-csharp">[ApiController]
+[Route("api/[controller]")]                      // → api/accounts
+public class AccountsController : ControllerBase
+{
+    private readonly IAccountService _service;
+
+    public AccountsController(IAccountService service) =&gt; _service = service;
+
+    [HttpGet("{number}")]                        // GET api/accounts/0123456789
+    public async Task&lt;ActionResult&lt;AccountResponse&gt;&gt; Get(
+        string number, CancellationToken ct)
+    {
+        var account = await _service.FindAsync(number, ct);
+        return account is null ? NotFound() : Ok(account.ToResponse());
+    }
+
+    [HttpPost]                                   // POST api/accounts
+    public async Task&lt;ActionResult&lt;AccountResponse&gt;&gt; Open(
+        OpenAccountRequest request, CancellationToken ct)
+    {
+        var account = await _service.OpenAsync(request, ct);
+        return CreatedAtAction(nameof(Get), new { number = account.Number },
+                               account.ToResponse());
+    }
+}</code></pre>
+<p><code>[ApiController]</code> is doing real work: it binds the request body automatically, and it returns <strong>400 with a validation problem document</strong> before your method runs if the model is invalid. You do not write <code>if (!ModelState.IsValid)</code>.</p>
+<h2 id="h-12-1">2. Minimal APIs</h2>
+<p>Same framework underneath, less ceremony. Good for small services and for endpoints with no real logic.</p>
+<div class="code-label">Program.cs</div>
+<pre><code class="language-csharp">app.MapGet("/health", () =&gt; Results.Ok(new { status = "healthy" }));
+
+app.MapGet("/api/accounts/{number}", async (
+    string number, IAccountService service, CancellationToken ct) =&gt;
+{
+    var account = await service.FindAsync(number, ct);
+    return account is null ? Results.NotFound() : Results.Ok(account.ToResponse());
+});</code></pre>
+<p>Note that <code>IAccountService</code> is injected straight into the lambda — parameters are resolved from the route, the query string, the body or the DI container as appropriate.</p>
+<table>
+        <tbody><tr><th>Choose</th><th>When</th></tr>
+        <tr><td>Minimal APIs</td><td>Small services, health checks, thin endpoints, highest throughput</td></tr>
+        <tr><td>Controllers</td><td>Many related endpoints, shared filters, conventional structure a team already knows</td></tr>
+      </tbody></table>
+<h2 id="h-12-2">3. Status Codes That Matter</h2>
+<table>
+        <tbody><tr><th>Code</th><th>Means</th><th>Return it when</th></tr>
+        <tr><td><strong>200</strong> OK</td><td>Success with a body</td><td>GET, or an update returning the new state</td></tr>
+        <tr><td><strong>201</strong> Created</td><td>Resource created</td><td>POST that created something. Include a <code>Location</code> header</td></tr>
+        <tr><td><strong>204</strong> No Content</td><td>Success, nothing to say</td><td>DELETE, or an update returning nothing</td></tr>
+        <tr><td><strong>400</strong> Bad Request</td><td>The request is malformed or invalid</td><td>Validation failure. The client must change something</td></tr>
+        <tr><td><strong>401</strong> Unauthorized</td><td>Not authenticated</td><td>No or invalid credentials. Badly named — it means unauthenticated</td></tr>
+        <tr><td><strong>403</strong> Forbidden</td><td>Authenticated but not permitted</td><td>Identity known, permission denied</td></tr>
+        <tr><td><strong>404</strong> Not Found</td><td>No such resource</td><td>Unknown id</td></tr>
+        <tr><td><strong>409</strong> Conflict</td><td>Conflicts with current state</td><td>Duplicate creation, concurrent-edit clash</td></tr>
+        <tr><td><strong>422</strong> Unprocessable</td><td>Well-formed but semantically invalid</td><td>Optional; many APIs use 400 for this too</td></tr>
+        <tr><td><strong>500</strong> Server Error</td><td>We broke</td><td>Never deliberately. Never with a stack trace</td></tr>
+      </tbody></table>
+<div class="callout warn">
+        <div class="cl-title">401 vs 403, since everyone gets this wrong</div>
+        <strong>401</strong> means "I do not know who you are" — authenticate and try again. <strong>403</strong> means
+        "I know exactly who you are and you may not do this" — retrying will not help. The names are historically backwards;
+        the meanings are not.
+      </div>
+<h2 id="h-12-3">4. DTOs — Never Expose Your Entities</h2>
+<div class="code-label">separate request, response and domain</div>
+<pre><code class="language-csharp">// what the client may send
+public record OpenAccountRequest(string Owner, string Currency, decimal Opening);
+
+// what the client gets back — note what is absent
+public record AccountResponse(string Number, string Owner, decimal Balance, string Status);
+
+// your entity, which stays internal
+public class Account
+{
+    public int Id { get; set; }                  // internal key
+    public string? InternalRiskGrade { get; set; }
+    public string? KycDocumentPath { get; set; }
+    // ...
+}</code></pre>
+<div class="callout danger">
+        <div class="cl-title">Three reasons this is not optional</div>
+        <strong>Over-posting:</strong> binding directly to an entity lets a client set any property — including
+        <code>Balance</code> or <code>IsAdmin</code> — by adding it to the JSON.
+        <strong>Leakage:</strong> serialising an entity exposes internal columns, and EF navigation properties can drag whole
+        object graphs into the response.
+        <strong>Coupling:</strong> your API contract becomes your database schema, so a column rename is a breaking API change.
+      </div>
+<p>Records are ideal for DTOs: immutable, value-equal, and concise. One line per contract.</p>
+<h3>Mapping entities to DTOs without drowning in boilerplate</h3>
+<p>Once you have a few entities and a few DTOs each, hand-written mapping code multiplies fast. Two honest options:</p>
+<div class="code-label">manual — a static method or extension</div>
+<pre><code class="language-csharp">public static class AccountMappings
+{
+    public static AccountResponse ToResponse(this Account a) =&gt;
+        new(a.Number, a.Owner, a.Balance, a.Status.ToString());
+}</code></pre>
+<div class="code-label">AutoMapper — convention-based</div>
+<pre><code class="language-csharp">builder.Services.AddAutoMapper(typeof(Program));
+
+CreateMap&lt;Account, AccountResponse&gt;();   // property names match → wired automatically
+
+var response = _mapper.Map&lt;AccountResponse&gt;(account);</code></pre>
+<div class="callout tip">
+        <div class="cl-title">Which to reach for</div>
+        Manual mapping is explicit, debuggable, and shows up in "find usages" — prefer it while a codebase is small or the
+        mapping has real logic (computed fields, conditionals). AutoMapper earns its keep once you have dozens of DTOs and the
+        mappings are genuinely one-to-one; past that point it removes a lot of repetitive, low-value code. Either way,
+        <strong>never let a mapping library silently expose a field you meant to hide</strong> — a renamed entity property
+        that happens to match a DTO property will map automatically, which is convenient until it leaks something.
+      </div>
+<h2 id="h-12-4">5. Validation</h2>
+<div class="code-label">data annotations</div>
+<pre><code class="language-csharp">public record OpenAccountRequest
+{
+    [Required, StringLength(100, MinimumLength = 2)]
+    public required string Owner { get; init; }
+
+    [Required, RegularExpression("^[A-Z]{3}$", ErrorMessage = "Currency must be a 3-letter code.")]
+    public required string Currency { get; init; }
+
+    [Range(0, 1_000_000_000)]
+    public decimal Opening { get; init; }
+}</code></pre>
+<p>With <code>[ApiController]</code>, a failure returns 400 and a <code>ValidationProblemDetails</code> body listing each bad field — automatically, before your code runs.</p>
+<p>Annotations handle shape. <strong>Business rules do not belong here</strong> — "the source account must have sufficient funds" needs the database and belongs in your service, returning a domain result the controller translates.</p>
+<h2 id="h-12-5">6. Error Handling In One Place</h2>
+<div class="code-label">Program.cs — translate once, not per controller</div>
+<pre><code class="language-csharp">app.UseExceptionHandler(handler =&gt;
+{
+    handler.Run(async context =&gt;
+    {
+        var ex = context.Features.Get&lt;IExceptionHandlerFeature&gt;()?.Error;
+        var logger = context.RequestServices.GetRequiredService&lt;ILogger&lt;Program&gt;&gt;();
+
+        logger.LogError(ex, "Unhandled error on {Path}", context.Request.Path);
+
+        var (status, title) = ex switch
+        {
+            AccountNotFoundException   =&gt; (404, "Account not found"),
+            InsufficientFundsException =&gt; (409, "Insufficient funds"),
+            ArgumentException          =&gt; (400, "Invalid request"),
+            _                          =&gt; (500, "An unexpected error occurred")
+        };
+
+        context.Response.StatusCode = status;
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = status,
+            Title = title,
+            // deliberately NOT ex.Message for the 500 case
+            Instance = context.Request.Path
+        });
+    });
+});</code></pre>
+<p>That pattern-matching switch is the Week 1 material doing real work. Benefits: consistent error shape everywhere, one place to change, controllers free of try/catch, and <strong>internal exception text never reaches a client</strong> — which matters, because exception messages leak table names, file paths and connection details.</p>
+<div class="callout tip">
+        <div class="cl-title">ProblemDetails is a standard</div>
+        RFC 7807 defines a conventional JSON error shape: <code>type</code>, <code>title</code>, <code>status</code>,
+        <code>detail</code>, <code>instance</code>. ASP.NET Core produces it by default for validation failures.
+        Use it for your own errors too, and clients can parse every error the same way.
+      </div>

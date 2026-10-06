@@ -1,0 +1,143 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What is the N+1 problem, and how does filtering before versus after <code>ToListAsync</code> change what the database does?</div>
+<h2 id="h-14-0">1. Two Different Questions</h2>
+<table>
+        <tbody><tr><th></th><th>Authentication</th><th>Authorization</th></tr>
+        <tr><td>Question</td><td>Who are you?</td><td>What may you do?</td></tr>
+        <tr><td>Fails with</td><td><strong>401</strong> Unauthorized</td><td><strong>403</strong> Forbidden</td></tr>
+        <tr><td>Middleware</td><td><code>UseAuthentication()</code></td><td><code>UseAuthorization()</code></td></tr>
+        <tr><td>Must run</td><td>First</td><td>Second — it needs an identity to evaluate</td></tr>
+      </tbody></table>
+<p>That ordering is not a style preference. Authorisation with no identity available sees an anonymous user and rejects everything.</p>
+<h2 id="h-14-1">2. What A JWT Actually Is</h2>
+<p>Three base64url-encoded segments separated by dots:</p>
+<pre><code class="language-text">eyJhbGciOiJIUzI1NiJ9  .  eyJzdWIiOiIxMjMiLCJyb2xlIjoiYWRtaW4ifQ  .  SflKxwRJSMeKKF2QT4
+      header                        payload (claims)                      signature</code></pre>
+<table>
+        <tbody><tr><th>Segment</th><th>Contains</th></tr>
+        <tr><td>Header</td><td>The signing algorithm and token type</td></tr>
+        <tr><td>Payload</td><td>Claims: <code>sub</code> (subject), <code>exp</code> (expiry), <code>iss</code>, <code>aud</code>, roles, plus anything you add</td></tr>
+        <tr><td>Signature</td><td>Header and payload signed with a secret or private key</td></tr>
+      </tbody></table>
+<div class="callout danger">
+        <div class="cl-title">A JWT is signed, not encrypted</div>
+        Anyone holding the token can read every claim in it — paste one into jwt.io and see. The signature proves it has not
+        been <em>altered</em>; it does nothing to hide the contents.
+        <br/><br/>
+        So: <strong>never put anything sensitive in a JWT.</strong> No passwords, no account numbers, no PII, no internal flags
+        you would not show the user. Put an identifier and the claims needed for authorisation decisions, and look the rest up.
+      </div>
+<p>The other consequence of signing is why JWTs scale: any server with the key can validate a token without a database lookup or shared session store. That is also the downside — <strong>you cannot revoke one</strong>. Until it expires, it is valid. Hence short lifetimes (minutes) plus a refresh token you <em>can</em> revoke.</p>
+<h2 id="h-14-2">3. Issuing A Token</h2>
+<div class="code-label">TokenService.cs</div>
+<pre><code class="language-csharp">public string CreateToken(User user)
+{
+    var claims = new List&lt;Claim&gt;
+    {
+        new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new(ClaimTypes.Name, user.Username),
+        new(ClaimTypes.Role, user.Role)              // drives role-based authorisation
+    };
+
+    var key = new SymmetricSecurityKey(
+        Encoding.UTF8.GetBytes(_options.SigningKey));
+
+    var token = new JwtSecurityToken(
+        issuer:   _options.Issuer,
+        audience: _options.Audience,
+        claims:   claims,
+        expires:  DateTime.UtcNow.AddMinutes(15),    // SHORT
+        signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
+
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}</code></pre>
+<h2 id="h-14-3">4. Validating It</h2>
+<div class="code-label">Program.cs</div>
+<pre><code class="language-csharp">builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =&gt;
+    {
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,
+            ValidateIssuerSigningKey = true,          // all four: non-negotiable
+            ValidIssuer   = cfg["Jwt:Issuer"],
+            ValidAudience = cfg["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(cfg["Jwt:SigningKey"]!)),
+            ClockSkew = TimeSpan.FromSeconds(30)      // default is 5 minutes
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// ... after Build()
+app.UseAuthentication();
+app.UseAuthorization();</code></pre>
+<div class="callout warn">
+        <div class="cl-title">Turning off validation is how tokens get forged</div>
+        Every <code>Validate*</code> flag above defaults to true for a reason. Setting <code>ValidateIssuerSigningKey = false</code>
+        means any signature is accepted, so anyone can mint a token claiming to be an administrator. People disable these to make
+        a local test pass and then ship it. Also note the default <code>ClockSkew</code> of five minutes — an expired token
+        stays valid for up to five extra minutes unless you narrow it.
+      </div>
+<h2 id="h-14-4">5. Protecting Endpoints</h2>
+<div class="code-label">attributes and policies</div>
+<pre><code class="language-csharp">[Authorize]                                   // any authenticated user
+public class AccountsController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult List() =&gt; Ok();
+
+    [Authorize(Roles = "Admin")]              // role required
+    [HttpDelete("{id}")]
+    public IActionResult Delete(int id) =&gt; NoContent();
+
+    [AllowAnonymous]                          // opt back out
+    [HttpGet("public-rates")]
+    public IActionResult Rates() =&gt; Ok();
+}</code></pre>
+<p>Roles get coarse quickly. <strong>Policies</strong> express the actual rule:</p>
+<div class="code-label">policy-based authorisation</div>
+<pre><code class="language-csharp">builder.Services.AddAuthorization(o =&gt;
+{
+    o.AddPolicy("CanApproveTransfers", p =&gt;
+        p.RequireAuthenticatedUser()
+         .RequireClaim("department", "treasury")
+         .RequireAssertion(ctx =&gt;
+             ctx.User.HasClaim(c =&gt; c.Type == "approval_limit") &amp;&amp;
+             decimal.Parse(ctx.User.FindFirst("approval_limit")!.Value) &gt;= 1_000_000m));
+});
+
+[Authorize(Policy = "CanApproveTransfers")]
+public IActionResult Approve(int id) =&gt; Ok();</code></pre>
+<div class="callout tip">
+        <div class="cl-title">Prefer policies to roles</div>
+        <code>Roles = "Admin"</code> scatters the definition of what an admin may do across every controller. A named policy puts
+        the rule in one place, gives it a name that matches the business language, and means a change to the rule is a change in
+        one file. Reading <code>[Authorize(Policy = "CanApproveTransfers")]</code> also tells a reviewer what the endpoint is for.
+      </div>
+<p>Inside an action, the current user is on <code>User</code>:</p>
+<pre><code class="language-csharp">var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+var isAdmin = User.IsInRole("Admin");</code></pre>
+<h2 id="h-14-5">6. Passwords</h2>
+<div class="callout danger">
+        <div class="cl-title">Never store a password, and never hash one yourself</div>
+        Not plaintext, not encrypted, not MD5 or SHA-256. Those hashes are fast, which is exactly the wrong property —
+        a GPU tries billions per second. You need a deliberately slow algorithm with a per-user salt and a tunable work factor:
+        <strong>bcrypt, scrypt, Argon2,</strong> or ASP.NET Core's built-in PBKDF2 implementation.
+      </div>
+<div class="code-label">use the framework's hasher</div>
+<pre><code class="language-csharp">var hasher = new PasswordHasher&lt;User&gt;();
+
+user.PasswordHash = hasher.HashPassword(user, plainPassword);   // salted, iterated
+
+var result = hasher.VerifyHashedPassword(user, user.PasswordHash, attempt);
+if (result == PasswordVerificationResult.Success) { /* ... */ }</code></pre>
+<p>Two more rules that matter as much as the hashing:</p>
+<ul>
+        <li><strong>Never reveal which half was wrong.</strong> "Invalid username or password" for both cases — otherwise you have built a username enumerator.</li>
+        <li><strong>Rate limit and lock out.</strong> Correct hashing does not help if an attacker gets unlimited attempts.</li>
+      </ul>
+<p>For anything beyond a simple case, use <strong>ASP.NET Core Identity</strong> rather than building it. It handles hashing, lockout, email confirmation, two-factor and token generation — all areas where a subtle mistake is a breach.</p>

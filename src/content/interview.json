@@ -1,0 +1,326 @@
+{
+  "0": [
+    {
+      "q": "What is the difference between .NET and C#?",
+      "a": "C# is a language; .NET is the platform it runs on &mdash; the CLR, the base class library and the SDK. Other languages (F#, VB.NET) target the same platform, which is the clearest proof that the two are separate concerns."
+    },
+    {
+      "q": "What is the CLR and what does it do for you?",
+      "a": "The Common Language Runtime. It loads IL and JIT-compiles it to native code, and it provides garbage collection, type safety, exception handling and thread management. It is the direct counterpart of the JVM."
+    },
+    {
+      "q": "What is IL and why does it exist?",
+      "a": "Intermediate Language &mdash; a portable instruction set that C# compiles to. It exists so that one compiled artefact can run anywhere a CLR exists, and so that the JIT can optimise for the actual CPU it finds at runtime rather than one guessed at compile time."
+    },
+    {
+      "q": "Should a new project target .NET Framework or .NET?",
+      "a": ".NET, always, unless you are extending an existing .NET Framework application or depend on a Windows-only API with no modern equivalent. .NET Framework gets security fixes but no new features; the modern line is cross-platform, open source and substantially faster."
+    }
+  ],
+  "1": [
+    {
+      "q": "What is in a .csproj file?",
+      "a": "The project definition: the SDK to build with, the target framework, compiler options such as nullable and implicit usings, package references and project references. It does not list source files &mdash; the SDK globs every .cs file under the project folder."
+    },
+    {
+      "q": "What is the difference between a project and a solution?",
+      "a": "A project is one unit of compilation producing one assembly (.dll or .exe). A solution is a container listing several related projects so they can be built, tested and opened together. A solution produces no output of its own."
+    },
+    {
+      "q": "What does TargetFramework control?",
+      "a": "Which version of .NET the project is compiled against, which determines the available APIs and language features, and which runtime can execute the result. Your installed SDK must support the target or the build fails with NETSDK1045."
+    },
+    {
+      "q": "What are implicit usings?",
+      "a": "A setting that makes the compiler add a set of common using directives automatically &mdash; System, System.Collections.Generic, System.Linq and others, varying by project type. It is why Console.WriteLine works in a new project with no using statement at the top."
+    }
+  ],
+  "2": [
+    {
+      "q": "Explain value types versus reference types.",
+      "a": "A value-type variable holds the data itself; assignment copies the data. A reference-type variable holds a reference to data on the heap; assignment copies the reference, so both variables see the same object. int, bool, DateTime and all structs are value types; string, arrays, classes and interfaces are reference types."
+    },
+    {
+      "q": "Why is string a reference type that behaves like a value type?",
+      "a": "Because strings are immutable. Any operation that appears to change a string returns a new one, so sharing a reference is never observable as a mutation. That immutability is also why repeated concatenation allocates and why StringBuilder exists."
+    },
+    {
+      "q": "What are nullable reference types and why do they matter?",
+      "a": "With Nullable enabled, the compiler distinguishes string from string? and warns when a possibly-null reference is dereferenced. It moves an entire bug class &mdash; NullReferenceException &mdash; from runtime to compile time. The ! operator suppresses the warning without adding safety, so it should be rare."
+    },
+    {
+      "q": "When would you use out versus a return value?",
+      "a": "When a method needs to report both success and a result, and failure is expected rather than exceptional &mdash; the Try pattern, as in int.TryParse. Returning a bool and supplying the value via out avoids both exceptions for routine failure and sentinel return values. A tuple return is often a cleaner modern alternative."
+    }
+  ],
+  "3": [
+    {
+      "q": "What is pattern matching and why is it useful?",
+      "a": "Testing the shape, type and values of an object in a single expression, binding variables as it goes. It lets business rules be written as a table of condition-to-outcome arms rather than nested branches, which makes them reviewable against a specification and lets the compiler check exhaustiveness."
+    },
+    {
+      "q": "Difference between a switch statement and a switch expression?",
+      "a": "A statement executes branches and uses case/break; an expression evaluates to a value using pattern => value arms. Because the expression must produce a value on every path, the compiler warns when the arms are not exhaustive &mdash; a correctness benefit the statement form does not give you."
+    },
+    {
+      "q": "How do you test a type and use the value in one step?",
+      "a": "A type pattern: if (payment is CardPayment card). Inside that block card is strongly typed, with no separate cast. It replaces the older test-then-cast pair, removing the possibility of the two getting out of sync."
+    },
+    {
+      "q": "Why can't you modify a collection while iterating it?",
+      "a": "The enumerator captures a version of the collection; structural changes invalidate it and the next MoveNext throws InvalidOperationException. The fix is to iterate a snapshot, defer the mutations until after the loop, or use a predicate-based method such as RemoveAll."
+    }
+  ],
+  "4": [
+    {
+      "q": "What is the difference between a field and a property?",
+      "a": "A field is storage. A property is a pair of accessor methods that look like a field at the call site. Properties let you add validation, computation, logging or change notification later without altering the public surface, which is why C# code exposes properties and keeps fields private."
+    },
+    {
+      "q": "Why does C# not use getX/setX methods like Java?",
+      "a": "Because properties are a language feature, so there is no need for the convention. In Java, turning a public field into a validated one is a breaking change, which drives defensive boilerplate. In C# a property is already the public shape, so you add behaviour behind it whenever it is genuinely needed."
+    },
+    {
+      "q": "What is the difference between init and set?",
+      "a": "set allows assignment at any time. init allows it only during construction &mdash; in a constructor or object initialiser &mdash; after which the property is immutable. Combined with required it gives validated, immutable construction without writing a constructor."
+    },
+    {
+      "q": "When would you use a static class?",
+      "a": "For stateless helpers &mdash; formatting, pure calculations, extension methods. A static class cannot be instantiated or inherited, which communicates that it holds no state. Avoid static mutable fields, since they are shared process-wide and become a concurrency hazard under load."
+    }
+  ],
+  "5": [
+    {
+      "q": "Why are C# methods not virtual by default?",
+      "a": "Because inheritance is treated as something you opt into deliberately. Making a method overridable is a design commitment &mdash; it becomes part of the contract with subclasses &mdash; so C# requires it to be explicit. The cost is the hiding trap when someone omits override; the benefit is that you can see from the base class exactly which members were designed for extension."
+    },
+    {
+      "q": "Interface or abstract class?",
+      "a": "Interface for a capability, abstract class for shared implementation. Interfaces give substitutability without coupling and a type can implement many; an abstract class can hold state and constructors but you only get one. In practice: depend on interfaces, use an abstract base only when there is genuine code to share, and often use both together in a template-method shape."
+    },
+    {
+      "q": "What does a record generate for you?",
+      "a": "A primary constructor, init-only properties for its components, value-based Equals and GetHashCode, a readable ToString, a Deconstruct method, and support for the with expression. All derived from the same component list, so they cannot disagree with each other."
+    },
+    {
+      "q": "When would you use a class instead of a record?",
+      "a": "When the type has identity and mutable behaviour rather than being its data &mdash; services, repositories, anything whose state changes over its lifetime. Records are for values: DTOs, events, configuration, value objects. The question to ask is whether two instances with the same contents should be considered the same thing."
+    }
+  ],
+  "6": [
+    {
+      "q": "What is deferred execution in LINQ?",
+      "a": "Most operators build a query object rather than computing a result. The work happens when the sequence is enumerated, which means results reflect the source at enumeration time, and enumerating twice does the work twice. Calling ToList or ToArray forces execution and takes a snapshot."
+    },
+    {
+      "q": "When do you pick a Dictionary over a List?",
+      "a": "When access is by key rather than by position. Dictionary lookup is O(1) against List's O(n) scan. The classic symptom that you need one is a Contains or a Where-First inside a loop, which turns an O(n) job into O(n&sup2;)."
+    },
+    {
+      "q": "Why return IReadOnlyList instead of List?",
+      "a": "Returning List hands the caller a mutable handle to your internal state, so they can add or remove items behind your back. IReadOnlyList communicates and enforces that the result is for reading. The complementary habit is accepting IEnumerable as a parameter, so callers can pass whatever they have."
+    },
+    {
+      "q": "What is the difference between Select and SelectMany?",
+      "a": "Select maps each item to one output, so a sequence of collections stays nested. SelectMany maps each item to a sequence and flattens the results into one. Selecting each customer's orders gives you a sequence of order lists; SelectMany gives you a single sequence of orders."
+    }
+  ],
+  "7": [
+    {
+      "q": "throw versus throw ex?",
+      "a": "Bare throw rethrows the current exception preserving its original stack trace. throw ex throws it afresh from the current line, discarding the frames beneath &mdash; so the log points at your catch block rather than the real origin. To add context, wrap: throw new MyException(msg, ex), which keeps the original as InnerException."
+    },
+    {
+      "q": "What is IDisposable and why does using exist?",
+      "a": "IDisposable marks a type holding an unmanaged resource &mdash; a file handle, socket or database connection &mdash; that must be released deterministically. The garbage collector handles memory but gives no guarantee about when, which is not good enough for a connection pool. using compiles to try/finally with a Dispose call, so release happens even on an exception."
+    },
+    {
+      "q": "When should you write a custom exception?",
+      "a": "When callers need to catch this failure specifically and react differently, and when they need data about it &mdash; which you expose as properties. If no caller will ever distinguish it from a built-in type, the custom type adds nothing but a name."
+    },
+    {
+      "q": "Where should exceptions be handled in a layered application?",
+      "a": "Throw low, catch high. Domain code throws precise exceptions and generally does not catch, because it cannot know what the right response is. One handler near the boundary &mdash; exception-handling middleware in ASP.NET Core &mdash; translates them into responses. That keeps HTTP concerns out of business logic and makes error responses consistent."
+    }
+  ],
+  "8": [
+    {
+      "q": "What problem does async/await solve?",
+      "a": "Thread starvation while waiting on I/O. A server has a bounded thread pool; if every request blocks a thread waiting on a database or an HTTP call, throughput is capped by the pool size. Async releases the thread during the wait and resumes on a pool thread afterwards, so the same hardware serves far more concurrent requests. It does not make any single operation faster."
+    },
+    {
+      "q": "Does async create new threads?",
+      "a": "No. That is the common misconception. For I/O the waiting is done by the operating system and the device, with no thread involved; the continuation is later scheduled onto a pool thread. Task.Run does use a pool thread, which is why it suits CPU-bound work and not I/O."
+    },
+    {
+      "q": "Why does blocking on .Result risk a deadlock?",
+      "a": "In a context with a synchronisation context &mdash; classic ASP.NET, WPF, WinForms &mdash; the awaited continuation must resume on the captured context, which is the very thread you are blocking. The continuation waits for the thread and the thread waits for the continuation. ASP.NET Core has no such context so it usually will not deadlock, but blocking still consumes a pool thread for nothing."
+    },
+    {
+      "q": "How do you add a timeout to an async call?",
+      "a": "A CancellationTokenSource constructed with a delay, whose token is passed into the call: new CancellationTokenSource(TimeSpan.FromSeconds(3)). When it fires, the operation throws OperationCanceledException. This only works if every method in the chain accepts and forwards the token &mdash; one that ignores it cannot be stopped."
+    }
+  ],
+  "9": [
+    {
+      "q": "What is a delegate?",
+      "a": "A type that represents a method signature, so a method can be stored in a variable, passed as an argument or returned. It makes behaviour a value. In practice you rarely declare one, because Func, Action and Predicate cover nearly every shape."
+    },
+    {
+      "q": "Difference between Func, Action and Predicate?",
+      "a": "Action returns void; Func returns a value, with the last type parameter being the return type; Predicate&lt;T&gt; is a Func&lt;T, bool&gt; by another name, kept for readability and for older APIs."
+    },
+    {
+      "q": "What is a closure and what is the common bug?",
+      "a": "A lambda capturing variables from its enclosing scope. C# captures the variable rather than its value, so lambdas created in a for loop all share the same loop variable and observe its final value. The fix is a fresh variable inside the loop body; foreach already provides one per iteration."
+    },
+    {
+      "q": "What is the difference between an event and a public delegate field?",
+      "a": "An event restricts outside code to subscribing and unsubscribing. A public delegate field could be invoked by anyone, or overwritten entirely with assignment, wiping out every other subscriber. The event keyword exists to make that impossible."
+    }
+  ],
+  "10": [
+    {
+      "q": "Walk me through a project you built.",
+      "a": "Name the problem, the shape of the solution, one decision you made deliberately and one thing you would change. For MiniBank: the interesting part is making invalid states unrepresentable &mdash; validation in constructors, private setters on balance, and every change recorded as a transaction so the statement always reconciles. The thing to admit: a transfer across two in-memory accounts has no transaction boundary, so crash safety had to be built by hand."
+    },
+    {
+      "q": "How did you ensure a transfer could not lose money?",
+      "a": "The honest answer involves ordering and compensation: validate everything before mutating anything, debit then credit, and if the credit fails reverse the debit. The deeper point is that without a real transaction you cannot make it atomic, only recoverable &mdash; which is why you record intent before acting, so a restart can tell what was in flight."
+    },
+    {
+      "q": "Why use decimal rather than double for money?",
+      "a": "double is binary floating point and cannot represent most decimal fractions exactly, so errors accumulate across many operations and balances stop reconciling. decimal is base-10 with 28 to 29 significant digits and is exact for decimal values. The alternative is to store minor units as integers."
+    },
+    {
+      "q": "How would you make this testable?",
+      "a": "Separate decisions from I/O. Business rules go in classes that take and return values, with no console or file access; the console loop becomes a thin shell that reads input and calls them. Inject anything non-deterministic &mdash; the clock as Func&lt;DateTime&gt;, storage behind an interface &mdash; so tests control it."
+    }
+  ],
+  "11": [
+    {
+      "q": "Explain dependency injection and why ASP.NET Core builds it in.",
+      "a": "Classes declare their dependencies as constructor parameters and the container supplies them. It means a class depends on abstractions rather than concrete implementations, which makes it testable with fakes and lets infrastructure be swapped without touching business logic. It is built in because essentially every non-trivial application needs it, and a consistent container means libraries can integrate with it predictably."
+    },
+    {
+      "q": "What are the three service lifetimes?",
+      "a": "Singleton: one instance for the application. Scoped: one per HTTP request. Transient: a new one on every resolution. Scoped is the default choice for services and repositories; Singleton suits caches and clocks; Transient suits cheap stateless helpers. The important rule is that a Singleton must never capture a Scoped dependency."
+    },
+    {
+      "q": "What is middleware?",
+      "a": "An ordered chain of components each request passes through. Each one can inspect or modify the request, call the next component, and then inspect or modify the response on the way back. Not calling next short-circuits the pipeline, which is how rate limiting and caching work. Order is semantics: authentication must precede authorisation, and the exception handler must come first to catch anything after it."
+    },
+    {
+      "q": "How does configuration work across environments?",
+      "a": "Layered providers, each overriding the last: appsettings.json, then appsettings.{Environment}.json, then environment variables, then command-line arguments. One build therefore runs everywhere. Prefer the options pattern &mdash; bind a section to a typed class and inject IOptions&lt;T&gt; &mdash; so configuration is typed, defaulted and discoverable rather than string keys scattered through the code."
+    }
+  ],
+  "12": [
+    {
+      "q": "Why use DTOs instead of exposing entities?",
+      "a": "Three reasons. Over-posting: the model binder would let a client set any entity property. Leakage: serialising an entity exposes internal columns and can drag entire navigation graphs into the response. Coupling: the API contract becomes the database schema, so a column rename breaks clients. DTOs make the contract explicit and independent."
+    },
+    {
+      "q": "Minimal APIs or controllers?",
+      "a": "Minimal APIs for small services, health endpoints and thin handlers &mdash; less ceremony and marginally faster. Controllers when there are many related endpoints that benefit from shared routing, filters and a conventional layout a team already recognises. They use the same framework underneath, so it is a readability and organisation decision rather than a capability one."
+    },
+    {
+      "q": "How should validation be layered?",
+      "a": "Data annotations on the DTO for shape &mdash; required fields, lengths, ranges, formats &mdash; which [ApiController] turns into an automatic 400 with a per-field problem document. Business rules that need state, such as sufficient funds or a duplicate check, belong in the service layer, which returns a domain result or throws a domain exception for the error middleware to translate."
+    },
+    {
+      "q": "What is ProblemDetails?",
+      "a": "The RFC 7807 standard JSON error format &mdash; type, title, status, detail, instance. ASP.NET Core already returns it for validation failures. Using it for your own errors means every client can parse every error the same way instead of guessing at an ad-hoc shape per endpoint."
+    }
+  ],
+  "13": [
+    {
+      "q": "What is the N+1 problem?",
+      "a": "One query loads a list, then accessing a navigation property on each item issues another query &mdash; so N items cost N+1 round trips. It is invisible with test data and crippling in production. Fix it with Include to load related data in one joined query, or by projecting exactly what you need so the database aggregates. Detect it by logging the generated SQL and counting statements."
+    },
+    {
+      "q": "What does it mean that DbContext is a unit of work?",
+      "a": "It tracks the entities it loads, records your modifications, and applies all of them in a single transaction when SaveChanges is called. You never write UPDATE statements; you change properties. It also means the context is per-operation, not per-application, which is why it is registered Scoped."
+    },
+    {
+      "q": "How do you avoid accidentally loading a whole table?",
+      "a": "Keep the filtering, ordering and paging before the call that materialises the query. Everything before ToListAsync is translated to SQL; everything after runs in memory over whatever was returned. Logging the generated SQL in development is the only reliable way to confirm which side of that line your code is on."
+    },
+    {
+      "q": "When would you not use EF Core?",
+      "a": "Bulk updates and deletes, where tracking a million entities is pathological &mdash; use ExecuteUpdateAsync or raw SQL. Complex reporting with window functions or CTEs, where hand-written SQL via Dapper is clearer and faster. And stored procedures, which in bank and enterprise systems are often the contract. Mixing EF for domain work with raw SQL for reports is normal practice."
+    }
+  ],
+  "14": [
+    {
+      "q": "Walk me through how JWT authentication works.",
+      "a": "The client authenticates once; the server returns a token containing claims, signed with a key. The client sends it on each request as a bearer header. The server validates the signature, issuer, audience and expiry, and builds a ClaimsPrincipal from the claims &mdash; with no database lookup, which is what makes it horizontally scalable. The trade-off is that a token cannot be revoked, so lifetimes are short and a revocable refresh token handles renewal."
+    },
+    {
+      "q": "What should never go in a JWT, and why?",
+      "a": "Anything sensitive &mdash; passwords, account numbers, PII, internal flags. The payload is base64, not encrypted, so anyone holding the token reads it. The signature guarantees the claims have not been altered, not that they are hidden. A token should carry an identifier and the claims needed for authorisation decisions; everything else is looked up."
+    },
+    {
+      "q": "How should passwords be stored?",
+      "a": "As a slow, salted hash &mdash; bcrypt, scrypt, Argon2, or the framework's PBKDF2 via PasswordHasher. Never plaintext, never encrypted (reversible means a key compromise exposes everything), and never a fast hash like MD5 or SHA-256, because speed is what makes offline cracking viable. Pair it with rate limiting, account lockout, and identical error messages for unknown user and wrong password."
+    },
+    {
+      "q": "Roles or policies?",
+      "a": "Policies, for anything beyond trivial. A role check scattered across controllers means the definition of what that role may do is distributed and unknowable. A named policy defines the rule once, in business language, so changing it is a single edit and reading the attribute tells you what the endpoint is actually gated on. Roles remain a useful input to a policy."
+    }
+  ],
+  "15": [
+    {
+      "q": "What is structured logging and why does it matter?",
+      "a": "Logging a constant message template plus named values, rather than a pre-formatted string. The template lets an aggregator group every occurrence of the same event, and the values become queryable fields &mdash; so you can ask for all failures where Amount exceeded a threshold. Interpolation produces a unique string per call and loses both properties."
+    },
+    {
+      "q": "How do you correlate log lines from one request?",
+      "a": "A logging scope via BeginScope attaches context to every line written inside it, so a reference appears on all of them without being repeated. ASP.NET Core also assigns each request a TraceIdentifier; returning it in error responses means a customer complaint arrives with the exact key needed to find the request."
+    },
+    {
+      "q": "What should never appear in logs?",
+      "a": "Passwords, PINs and OTPs at any level; full card numbers; full account numbers; tokens and auth headers; national IDs; and whole serialised request or response objects, which is the most common way the rest of that list leaks. Log named fields, and mask identifiers to their last few digits."
+    },
+    {
+      "q": "Difference between logs, metrics and traces?",
+      "a": "Logs are individual events, for reconstructing what happened to one request. Metrics are aggregates &mdash; rates, counts, latency percentiles &mdash; for the health of the system overall. Traces follow one request across service boundaries to show where time went. They answer different questions, and using one to answer another's question wastes a lot of effort."
+    }
+  ],
+  "16": [
+    {
+      "q": "What makes a good unit test?",
+      "a": "It tests one behaviour, it is independent of other tests, it is deterministic, it fails with a message that tells you what broke, and it asserts what the code does rather than how. The practical check is whether it would still pass after an internal rewrite that preserved behaviour &mdash; if not, it is coupled to implementation and will make refactoring expensive."
+    },
+    {
+      "q": "Unit tests or integration tests?",
+      "a": "Both, for different questions. Unit tests check logic in isolation and run in milliseconds, so they cover branches and boundaries cheaply. Integration tests check that the pieces fit &mdash; DI wiring, routing, serialisation, middleware order, real SQL &mdash; which unit tests cannot see by construction. WebApplicationFactory makes the latter cheap enough that there is no excuse for skipping them."
+    },
+    {
+      "q": "When should you not mock?",
+      "a": "When you do not own the abstraction. Mocking HttpClient, DbContext or a vendor SDK means asserting your beliefs about someone else's semantics, and the test passes while production fails. Wrap third-party dependencies behind a thin interface of your own and mock that, or exercise the real thing in an integration test."
+    },
+    {
+      "q": "Is 100% coverage a good goal?",
+      "a": "No. Coverage measures which lines executed, not whether anything was verified &mdash; a suite with no assertions can reach full coverage. It is useful for spotting areas with no tests at all, and harmful as a target, because the last few percent is usually trivial or generated code and the effort is better spent on the failure paths that actually break."
+    }
+  ],
+  "17": [
+    {
+      "q": "Walk me through the architecture of your project.",
+      "a": "Three projects with a deliberate dependency direction: Core holds domain types and business rules and references nothing but the language; Api holds controllers, DI registration, middleware, EF and auth, and depends on Core; Tests depends on both. Core defines the interfaces it needs and Api implements them, so business rules can be unit tested with no database, no HTTP and no framework. The restriction that Core cannot reference ASP.NET or EF is what enforces that."
+    },
+    {
+      "q": "What would you change to handle ten thousand transfers a second?",
+      "a": "Measure first &mdash; find whether the limit is the database, the core banking dependency or the application. Then, in rough order: connection pooling and indexing, AsNoTracking and projections on read paths, caching reference data, moving non-essential work out of the request into a queue, and only then horizontal scaling. The honest answer includes that the single-database write path is the likely ceiling and that solving it properly means partitioning or an event-sourced ledger, which is a much larger change."
+    },
+    {
+      "q": "How did you ensure a transfer cannot lose money?",
+      "a": "The debit and credit plus the transaction record happen in one SaveChanges, which is a single database transaction, so they commit or roll back together. Across a process boundary that guarantee does not exist, which is why an idempotency key is needed: a retried request after a timeout returns the original result instead of moving money again. The key insight is that a timeout means unknown, not failed."
+    },
+    {
+      "q": "What is the weakest part of your code?",
+      "a": "Answer this honestly and specifically &mdash; a vague answer is worse than an unflattering one. Good shapes: a validation rule in the wrong layer and why moving it was not trivial; integration tests that need a real database and so do not run in CI; an endpoint that works but issues more queries than it should. Name the trade-off you accepted and what it would take to fix."
+    }
+  ]
+}

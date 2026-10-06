@@ -1,0 +1,62 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What is a captive dependency, and which lifetime combination causes it?</div>
+<h2 id="h-21-0">1. The Shape Of A Hosted Service</h2>
+<div class="code-label">StatementReconciliationJob.cs</div>
+<pre><code class="language-csharp">public class StatementReconciliationJob(
+    IServiceScopeFactory scopeFactory,
+    ILogger&lt;StatementReconciliationJob&gt; logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(15));
+
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            try
+            {
+                await RunOnceAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                // one bad run must not kill the loop — log and wait for the next tick
+                logger.LogError(ex, "Reconciliation run failed");
+            }
+        }
+    }
+
+    private async Task RunOnceAsync(CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService&lt;AppDbContext&gt;();
+        // ... do the work with a fresh, scoped DbContext
+    }
+}
+
+// registration
+builder.Services.AddHostedService&lt;StatementReconciliationJob&gt;();</code></pre>
+<p><code>BackgroundService</code> runs for the lifetime of the application — which means it is registered and behaves like a <strong>Singleton</strong>. That is the whole reason this page exists right after the DI lifetimes lesson.</p>
+<h2 id="h-21-1">2. Why You Cannot Just Inject <code>AppDbContext</code> Here</h2>
+<div class="callout danger">
+        <div class="cl-title">This is the captive dependency bug, in its most common real-world form</div>
+        A <code>BackgroundService</code> is created once and lives for the whole application. If you inject a Scoped
+        <code>DbContext</code> straight into its constructor, you get <strong>one DbContext for the entire lifetime of the
+        process</strong> — every run shares the same change tracker, memory grows unbounded, and eventually you hit stale
+        data or disposed-object exceptions. The fix is always the same: inject <code>IServiceScopeFactory</code>, and create a
+        new scope — and therefore a fresh DbContext — for each unit of work, as above.
+      </div>
+<h2 id="h-21-2">3. Scheduling Beyond A Fixed Interval</h2>
+<p><code>PeriodicTimer</code> is enough for "every N minutes." For anything calendar-shaped — "2am daily," "first of the month," "skip weekends" — reach for a library rather than hand-rolling date math:</p>
+<table>
+        <tbody><tr><th>Tool</th><th>Use for</th></tr>
+        <tr><td><code>PeriodicTimer</code> / <code>BackgroundService</code></td><td>Simple fixed-interval work, in-process, no external dependency</td></tr>
+        <tr><td>Quartz.NET</td><td>Cron-style schedules, persisted job state, misfire handling</td></tr>
+        <tr><td>Hangfire</td><td>Fire-and-forget or delayed jobs triggered from request code, with a dashboard</td></tr>
+      </tbody></table>
+<h2 id="h-21-3">4. Make Every Run Safe To Repeat</h2>
+<p>A job host can restart mid-run — a deployment, a crash, a scale-down. Design every job as if it might run twice on the same batch:</p>
+<ul>
+        <li>Track processed items by a unique key (statement ID, transaction reference) and skip ones already marked done.</li>
+        <li>Prefer "claim a batch, then process it" over "process everything untouched," so two overlapping runs do not double-handle the same rows.</li>
+        <li>Make the final write (marking something processed) the <em>last</em> thing that happens, after the real work succeeded — never before.</li>
+      </ul>
+<h2 id="h-21-4">5. Logging Every Run, Not Just Failures</h2>
+<p>A job that runs silently in the background is invisible until it breaks, and by then you often cannot tell how long it has been broken. Log the start, the count processed, and the duration of every run — not just exceptions — so "did last night's reconciliation actually run?" has an answer in the logs instead of a guess.</p>

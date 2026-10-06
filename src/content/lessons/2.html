@@ -1,0 +1,121 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>What does the CLR do with IL, and why does that make the same binary portable?</div>
+<h2 id="h-2-0">1. Value Types vs Reference Types</h2>
+<p>This is the concept to actually understand rather than memorise. Everything in C# is one or the other, and the difference is <strong>what the variable holds</strong>.</p>
+<table>
+        <tbody><tr><th></th><th>Value types</th><th>Reference types</th></tr>
+        <tr><td>Variable holds</td><td>The data itself</td><td>A reference to data elsewhere</td></tr>
+        <tr><td>Lives on</td><td>The stack, usually</td><td>The heap, always</td></tr>
+        <tr><td>Assignment</td><td>Copies the value</td><td>Copies the reference</td></tr>
+        <tr><td>Can be null</td><td>No, unless <code>int?</code></td><td>Yes</td></tr>
+        <tr><td>Examples</td><td><code>int</code>, <code>double</code>, <code>bool</code>, <code>char</code>, <code>decimal</code>, <code>DateTime</code>, any <code>struct</code>, any <code>enum</code></td><td><code>string</code>, arrays, any <code>class</code>, any <code>interface</code>, delegates</td></tr>
+      </tbody></table>
+<div class="code-label">the difference, demonstrated</div>
+<pre><code class="language-csharp">int a = 5;
+int b = a;      // b gets a COPY
+b = 10;
+// a is still 5
+
+var list1 = new List&lt;int&gt; { 1, 2, 3 };
+var list2 = list1;   // list2 gets a copy of the REFERENCE
+list2.Add(4);
+// list1 now has 4 items too — both names point at one object</code></pre>
+<div class="callout warn">
+        <div class="cl-title">The bug this causes</div>
+        Passing an object to a method and expecting the caller's copy to be untouched. It will not be — the method
+        received the same reference and any mutation is visible to the caller. If you need isolation, copy deliberately.
+      </div>
+<h2 id="h-2-1">2. The Types You Will Actually Use</h2>
+<table>
+        <tbody><tr><th>Type</th><th>Use for</th><th>Note</th></tr>
+        <tr><td><code>int</code></td><td>Whole numbers</td><td>32-bit. The default choice</td></tr>
+        <tr><td><code>long</code></td><td>Large whole numbers</td><td>64-bit. IDs, timestamps, amounts in minor units</td></tr>
+        <tr><td><code>decimal</code></td><td><strong>Money</strong></td><td>Base-10, 28–29 digits. Slower, exact</td></tr>
+        <tr><td><code>double</code></td><td>Scientific, measurements</td><td>Base-2 floating point. <strong>Never money</strong></td></tr>
+        <tr><td><code>bool</code></td><td>true / false</td><td>Not an integer. <code>if (1)</code> does not compile</td></tr>
+        <tr><td><code>string</code></td><td>Text</td><td>Reference type, but immutable — behaves value-like</td></tr>
+        <tr><td><code>DateTime</code> / <code>DateOnly</code></td><td>Dates and times</td><td>Prefer <code>DateTimeOffset</code> when a time zone matters</td></tr>
+        <tr><td><code>Guid</code></td><td>Unique identifiers</td><td><code>Guid.NewGuid()</code></td></tr>
+      </tbody></table>
+<div class="callout danger">
+        <div class="cl-title">Never use double for money</div>
+        <code>0.1 + 0.2 == 0.3</code> is <strong>false</strong> for <code>double</code>, because base-2 cannot represent those values exactly.
+        Over a million transactions the error compounds into a reconciliation break nobody can explain. <code>decimal</code> is base-10 and exact for
+        decimal fractions. Use <code>decimal</code>, or store minor units (kobo, cents) as <code>long</code>.
+      </div>
+<h2 id="h-2-2">3. var, const and readonly</h2>
+<div class="code-label">declaration forms</div>
+<pre><code class="language-csharp">var count = 10;                    // compiler infers int — still statically typed
+var name = "Ada";                  // string
+var items = new List&lt;string&gt;();    // List&lt;string&gt;
+
+const int MaxRetries = 3;          // compile-time constant, baked into callers
+static readonly DateTime Started = DateTime.UtcNow;   // set once at runtime</code></pre>
+<p><strong><code>var</code> is not dynamic typing.</strong> The type is fixed at compile time; you have only asked the compiler to work it out. <code>var x = 5; x = "hello";</code> is a compile error.</p>
+<p><code>const</code> must be computable at compile time, so <code>const DateTime Now = DateTime.UtcNow;</code> will not compile. Use <code>readonly</code> for values fixed once at runtime.</p>
+<div class="callout">
+        <div class="cl-title">A real gotcha with const</div>
+        <code>const</code> values are copied into every assembly that uses them at compile time. Change a <code>const</code> in a library
+        and recompile only the library — consumers keep the old value until they are rebuilt. <code>static readonly</code> is resolved at
+        runtime and does not have this problem. For anything public that might change, prefer <code>static readonly</code>.
+      </div>
+<h2 id="h-2-3">4. Nullable Reference Types</h2>
+<p>New projects ship with <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code>, and this is one of the best things about modern C#. The compiler tracks whether a reference can be null and warns when you ignore it.</p>
+<div class="code-label">the compiler is now on your side</div>
+<pre><code class="language-csharp">string name = null;       // warning: cannot convert null to non-nullable
+string? maybe = null;     // fine — the ? says "this can be null"
+
+Console.WriteLine(maybe.Length);        // warning: possible null dereference
+Console.WriteLine(maybe?.Length);       // null-conditional: returns null instead of throwing
+Console.WriteLine(maybe?.Length ?? 0);  // null-coalescing: a default when null</code></pre>
+<table>
+        <tbody><tr><th>Operator</th><th>Does</th></tr>
+        <tr><td><code>?</code> on a type</td><td>Declares that null is allowed: <code>string?</code>, <code>int?</code></td></tr>
+        <tr><td><code>?.</code></td><td>Call only if not null, else the whole expression is null</td></tr>
+        <tr><td><code>??</code></td><td>Use the right side if the left is null</td></tr>
+        <tr><td><code>??=</code></td><td>Assign only if currently null</td></tr>
+        <tr><td><code>!</code></td><td>"Trust me, not null." Silences the warning <em>without</em> checking anything</td></tr>
+      </tbody></table>
+<div class="callout warn">
+        <div class="cl-title">The null-forgiving operator is a loaded gun</div>
+        <code>maybe!.Length</code> tells the compiler to stop warning. It does not make the value non-null — it converts a
+        compile-time warning into a runtime <code>NullReferenceException</code>. Every <code>!</code> is a claim you are making. Make very few.
+      </div>
+<h2 id="h-2-4">5. Strings</h2>
+<div class="code-label">the forms worth knowing</div>
+<pre><code class="language-csharp">var name = "Ada";
+var greet = $"Hello, {name}. You have {count:N0} messages.";   // interpolation, with format
+var path  = @"C:\Users\dev\file.txt";                          // verbatim: no escapes needed
+var json  = """
+            { "id": 1, "name": "Ada" }
+            """;                                               // raw string: quotes need no escaping</code></pre>
+<p><strong>Strings are immutable.</strong> Every concatenation allocates a new string, so building one in a loop allocates once per iteration:</p>
+<div class="code-label">why StringBuilder exists</div>
+<pre><code class="language-csharp">var s = "";
+for (int i = 0; i &lt; 10_000; i++) s += i;      // 10,000 allocations
+
+var sb = new System.Text.StringBuilder();
+for (int i = 0; i &lt; 10_000; i++) sb.Append(i);
+var result = sb.ToString();                    // one buffer, grown as needed</code></pre>
+<p>Comparison traps worth knowing now: use <code>string.IsNullOrWhiteSpace(s)</code> rather than <code>s == ""</code>, and pass
+      <code>StringComparison.OrdinalIgnoreCase</code> explicitly when comparing case-insensitively — culture-sensitive comparison is the default in some APIs and produces different answers in different locales.</p>
+<h2 id="h-2-5">6. Methods</h2>
+<div class="code-label">signatures and parameter forms</div>
+<pre><code class="language-csharp">public decimal Fee(decimal amount, decimal rate = 0.015m)   // optional parameter
+{
+    return amount * rate;
+}
+
+// named arguments — order no longer matters, and the call reads clearly
+var f = Fee(rate: 0.02m, amount: 5000m);
+
+// expression-bodied, for one-liners
+public decimal Double(decimal x) =&gt; x * 2;
+
+// out: return a second value
+public bool TryParseAmount(string input, out decimal amount)
+    =&gt; decimal.TryParse(input, out amount);
+
+if (TryParseAmount("12.50", out var parsed))
+    Console.WriteLine(parsed);</code></pre>
+<p><strong>Overloading</strong> means several methods sharing a name with different parameter lists. The return type is <em>not</em> part of the signature — two methods differing only by return type will not compile.</p>
+<p>The <code>Try...</code> pattern above is idiomatic C#: a <code>bool</code> for success and an <code>out</code> for the value, used wherever failure is expected rather than exceptional. You will see it on every parsing API in the framework.</p>

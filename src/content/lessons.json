@@ -1,0 +1,1008 @@
+[
+  {
+    "id": 0,
+    "label": "What .NET and C# Are",
+    "section": "start",
+    "badge": "●",
+    "tag": "Orientation",
+    "title": "What .NET and C# Are",
+    "subtitle": "Before any syntax: what you are actually installing, what runs your code, and why the naming is so confusing. Ten minutes here prevents a year of vague mental models.",
+    "steps": [
+      "Platform vs language",
+      "CLR & IL",
+      "The naming mess",
+      "Where C# is used"
+    ],
+    "selfCheck": [
+      "What is the difference between .NET and C#?",
+      "What are the two compilation steps between source code and running code?",
+      "Why can the same compiled .dll run on Windows and Linux?",
+      "Why is .NET Framework 4.8 different from .NET 8, and which is legacy?",
+      "Name two things that are genuinely frameworks built on .NET."
+    ],
+    "headings": [
+      {
+        "id": "h-0-0",
+        "text": "1. The Two Halves"
+      },
+      {
+        "id": "h-0-1",
+        "text": "2. What Happens When You Run C#"
+      },
+      {
+        "id": "h-0-2",
+        "text": "3. The Naming Mess, Explained Once"
+      },
+      {
+        "id": "h-0-3",
+        "text": "4. What Is Actually A Framework"
+      },
+      {
+        "id": "h-0-4",
+        "text": "5. Where C# Actually Gets Used"
+      },
+      {
+        "id": "h-0-5",
+        "text": "6. How To Use This Course"
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "label": "Creating & Running Projects",
+    "section": "start",
+    "badge": "●",
+    "tag": "Setup",
+    "title": "Creating & Running .NET Projects",
+    "subtitle": "The dotnet CLI, what a project file actually is, and how a solution hangs together. Do this by hand once and every build error afterwards has a shape you recognise.",
+    "steps": [
+      "dotnet CLI",
+      "csproj",
+      "Solutions",
+      "NuGet",
+      "Common errors"
+    ],
+    "selfCheck": [
+      "What is the difference between the .NET SDK and the .NET runtime, and which do you install to develop?",
+      "What does dotnet run actually do — name all three steps.",
+      "Why does a .csproj not list your .cs files?",
+      "What are top-level statements, and what is the one-per-project rule?",
+      "What is a solution, and how does it differ from a project?",
+      "Where do NuGet packages get cached, and is that per project or per user?"
+    ],
+    "headings": [
+      {
+        "id": "h-1-0",
+        "text": "1. Check What You Have"
+      },
+      {
+        "id": "h-1-1",
+        "text": "2. Your First Project"
+      },
+      {
+        "id": "h-1-2",
+        "text": "3. What Got Generated"
+      },
+      {
+        "id": "h-1-3",
+        "text": "4. Program.cs and Top-Level Statements"
+      },
+      {
+        "id": "h-1-4",
+        "text": "5. The Commands You Will Actually Use"
+      },
+      {
+        "id": "h-1-5",
+        "text": "6. Solutions — Grouping Projects"
+      },
+      {
+        "id": "h-1-6",
+        "text": "7. NuGet"
+      },
+      {
+        "id": "h-1-7",
+        "text": "8. The Errors You Will Actually Hit"
+      },
+      {
+        "id": "h-1-8",
+        "text": "9. Do This Now"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "label": "Types, Variables & Methods",
+    "section": "week1",
+    "badge": "1",
+    "tag": "Day 1",
+    "title": "Types, Variables & Methods",
+    "subtitle": "C# is statically typed, and the single most important distinction in the language is value types versus reference types. Get that right and a whole class of bugs never happens to you.",
+    "steps": [
+      "Value vs reference",
+      "var & const",
+      "Nullable",
+      "Strings",
+      "Methods"
+    ],
+    "selfCheck": [
+      "What is the difference between a value type and a reference type, in terms of what the variable holds?",
+      "Why must you never use double for money, and what should you use?",
+      "Is var dynamic typing? Explain.",
+      "What is the practical difference between const and static readonly?",
+      "What does the ! null-forgiving operator actually do?",
+      "Why does building a string in a loop perform badly?"
+    ],
+    "headings": [
+      {
+        "id": "h-2-0",
+        "text": "1. Value Types vs Reference Types"
+      },
+      {
+        "id": "h-2-1",
+        "text": "2. The Types You Will Actually Use"
+      },
+      {
+        "id": "h-2-2",
+        "text": "3. var, const and readonly"
+      },
+      {
+        "id": "h-2-3",
+        "text": "4. Nullable Reference Types"
+      },
+      {
+        "id": "h-2-4",
+        "text": "5. Strings"
+      },
+      {
+        "id": "h-2-5",
+        "text": "6. Methods"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "label": "Control Flow & Patterns",
+    "section": "week1",
+    "badge": "2",
+    "tag": "Day 2",
+    "title": "Control Flow & Pattern Matching",
+    "subtitle": "The ordinary half of this is the same as every C-family language. The interesting half — switch expressions and pattern matching — is where C# has moved furthest from Java, and where idiomatic modern code looks very different from older code.",
+    "steps": [
+      "if / ternary",
+      "Loops",
+      "switch statement",
+      "switch expression",
+      "Patterns"
+    ],
+    "selfCheck": [
+      "Why does if (count) not compile in C#?",
+      "What happens if you add to a list inside a foreach over that list?",
+      "What is the difference between a switch statement and a switch expression?",
+      "What does the _ pattern mean, and why does exhaustiveness matter?",
+      "Write a type pattern that tests a type and binds a variable in one step.",
+      "What does when add to a switch arm?"
+    ],
+    "headings": [
+      {
+        "id": "h-3-0",
+        "text": "1. Conditionals"
+      },
+      {
+        "id": "h-3-1",
+        "text": "2. Loops"
+      },
+      {
+        "id": "h-3-2",
+        "text": "3. The switch Statement"
+      },
+      {
+        "id": "h-3-3",
+        "text": "4. The switch Expression"
+      },
+      {
+        "id": "h-3-4",
+        "text": "5. Pattern Matching"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "label": "Classes & Properties",
+    "section": "week1",
+    "badge": "3",
+    "tag": "Day 3",
+    "title": "Classes, Objects & Properties",
+    "subtitle": "Properties are the biggest day-to-day difference between C# and Java. C# has no getter/setter convention — it has language-level properties, and they change how you design types.",
+    "steps": [
+      "Classes",
+      "Properties",
+      "Constructors",
+      "init & required",
+      "static"
+    ],
+    "selfCheck": [
+      "What is the difference between a field and a property?",
+      "Why can you change an auto-property into a validating property without breaking callers?",
+      "What does init do that set does not?",
+      "What does required guarantee, and when is it checked?",
+      "Why is static mutable state dangerous in a web application?",
+      "What is the contract between Equals and GetHashCode?"
+    ],
+    "headings": [
+      {
+        "id": "h-4-0",
+        "text": "1. A Class"
+      },
+      {
+        "id": "h-4-1",
+        "text": "2. Properties — The Important Part"
+      },
+      {
+        "id": "h-4-2",
+        "text": "3. Constructors and Object Initialisers"
+      },
+      {
+        "id": "h-4-3",
+        "text": "4. static"
+      },
+      {
+        "id": "h-4-4",
+        "text": "5. ToString, and Printing Objects"
+      },
+      {
+        "id": "h-4-5",
+        "text": "6. Equality"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "label": "Inheritance & Interfaces",
+    "section": "week1",
+    "badge": "4",
+    "tag": "Day 4",
+    "title": "Inheritance, Interfaces & Records",
+    "subtitle": "Three ways to share and separate behaviour. The most important practical lesson is that interfaces plus composition carry you much further than inheritance, and records remove most of the reasons you used to write classes.",
+    "steps": [
+      "Inheritance",
+      "virtual / override",
+      "abstract",
+      "Interfaces",
+      "Records"
+    ],
+    "selfCheck": [
+      "In C#, what happens if you write a method with the same name as a base method without using override?",
+      "When should you choose an abstract class over an interface?",
+      "Why does preferring interfaces and composition make code more testable?",
+      "What exactly does the compiler generate for a record?",
+      "What does the with expression do, and what happens to the original object?",
+      "Why does using a record remove the Equals/GetHashCode hazard?"
+    ],
+    "headings": [
+      {
+        "id": "h-5-0",
+        "text": "1. Inheritance"
+      },
+      {
+        "id": "h-5-1",
+        "text": "2. virtual, override, new and sealed"
+      },
+      {
+        "id": "h-5-2",
+        "text": "3. Abstract Classes"
+      },
+      {
+        "id": "h-5-3",
+        "text": "4. Interfaces"
+      },
+      {
+        "id": "h-5-4",
+        "text": "5. Records"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "label": "Collections & LINQ",
+    "section": "week1",
+    "badge": "5",
+    "tag": "Day 5",
+    "title": "Collections & LINQ",
+    "subtitle": "Pick the right collection and half your performance questions answer themselves. Then LINQ — which is the single most distinctive thing about writing C#, and the place where deferred execution quietly catches everyone out once.",
+    "steps": [
+      "List / Dictionary / HashSet",
+      "Choosing one",
+      "LINQ basics",
+      "Deferred execution",
+      "Grouping"
+    ],
+    "selfCheck": [
+      "When would you choose a HashSet over a List?",
+      "What is the difference between the Dictionary indexer and TryGetValue?",
+      "What should a method accept as a collection parameter, and what should it return?",
+      "What is deferred execution, and name two problems it causes.",
+      "Which LINQ methods force immediate execution?",
+      "What is the difference between First and Single, and when does that matter?"
+    ],
+    "headings": [
+      {
+        "id": "h-6-0",
+        "text": "1. The Four You Will Use"
+      },
+      {
+        "id": "h-6-1",
+        "text": "2. Choosing One"
+      },
+      {
+        "id": "h-6-2",
+        "text": "3. LINQ"
+      },
+      {
+        "id": "h-6-3",
+        "text": "4. Deferred Execution — The Thing That Catches Everyone"
+      },
+      {
+        "id": "h-6-4",
+        "text": "5. Grouping and Projection"
+      },
+      {
+        "id": "h-6-5",
+        "text": "6. Query Syntax"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "label": "Exception Handling",
+    "section": "week1",
+    "badge": "6",
+    "tag": "Day 6",
+    "title": "Exception Handling",
+    "subtitle": "The mechanics take ten minutes. The judgement — what to catch, what to let fly, and what never to do — is what separates code that fails usefully from code that fails silently.",
+    "steps": [
+      "try / catch / finally",
+      "using",
+      "Custom exceptions",
+      "What not to do",
+      "Rethrowing"
+    ],
+    "selfCheck": [
+      "What is the difference between throw and throw ex, and why does it matter?",
+      "When should you use ArgumentException versus InvalidOperationException?",
+      "What does using guarantee, and what problem does it solve that GC does not?",
+      "Why is catching an exception and continuing silently dangerous?",
+      "What advantage does a when filter have over an if inside the catch block?",
+      "What does 'throw low, catch high' mean in practice?"
+    ],
+    "headings": [
+      {
+        "id": "h-7-0",
+        "text": "1. The Mechanics"
+      },
+      {
+        "id": "h-7-1",
+        "text": "2. The Hierarchy You Need"
+      },
+      {
+        "id": "h-7-2",
+        "text": "3. using — Deterministic Cleanup"
+      },
+      {
+        "id": "h-7-3",
+        "text": "4. Custom Exceptions"
+      },
+      {
+        "id": "h-7-4",
+        "text": "5. The Four Things Not To Do"
+      },
+      {
+        "id": "h-7-5",
+        "text": "6. Exception Filters"
+      },
+      {
+        "id": "h-7-6",
+        "text": "7. Where To Handle Things"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "label": "async / await & Tasks",
+    "section": "week1",
+    "badge": "7",
+    "tag": "Day 7",
+    "title": "async / await and Tasks",
+    "subtitle": "The most important page in Week 1. Async is not about speed and not about threads — it is about not holding a thread hostage while waiting. Get the mental model right and you will avoid the three bugs that take down real services.",
+    "steps": [
+      "What async is for",
+      "Task",
+      "await",
+      "Parallel work",
+      "Deadlocks",
+      "Cancellation"
+    ],
+    "selfCheck": [
+      "What does async actually improve, if not speed?",
+      "Why is async void dangerous, and what is the single legitimate use?",
+      "Explain how blocking on .Result can deadlock.",
+      "How do you run three independent async calls concurrently?",
+      "What does Task.WhenAll do when more than one task fails?",
+      "When is Task.Run appropriate, and when is it a mistake?"
+    ],
+    "headings": [
+      {
+        "id": "h-8-0",
+        "text": "1. The Problem It Solves"
+      },
+      {
+        "id": "h-8-1",
+        "text": "2. Task and Task<T>"
+      },
+      {
+        "id": "h-8-2",
+        "text": "3. async All The Way Up"
+      },
+      {
+        "id": "h-8-3",
+        "text": "4. The Deadlock You Will Cause Exactly Once"
+      },
+      {
+        "id": "h-8-4",
+        "text": "5. Doing Things At The Same Time"
+      },
+      {
+        "id": "h-8-5",
+        "text": "6. Cancellation"
+      },
+      {
+        "id": "h-8-6",
+        "text": "7. The Mistakes, Collected"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "label": "Delegates & Lambdas",
+    "section": "week1",
+    "badge": "8",
+    "tag": "Day 8",
+    "title": "Delegates, Lambdas & Events",
+    "subtitle": "Treating a piece of behaviour as a value you can store and pass around. This is what LINQ is built on, what makes testing easy, and what most ASP.NET Core configuration actually is.",
+    "steps": [
+      "Delegates",
+      "Func / Action",
+      "Lambdas",
+      "Closures",
+      "Events"
+    ],
+    "selfCheck": [
+      "What is a delegate, in one sentence?",
+      "In Func&lt;string, int, bool&gt;, which type parameter is the return type?",
+      "What is the difference between Action and Func?",
+      "Why does the for-loop closure example print 3, 3, 3?",
+      "How does injecting Func&lt;DateTime&gt; make a class testable?",
+      "Why can an event cause a memory leak?"
+    ],
+    "headings": [
+      {
+        "id": "h-9-0",
+        "text": "1. A Delegate Is A Typed Reference To A Method"
+      },
+      {
+        "id": "h-9-1",
+        "text": "2. You Rarely Declare One — Use Func and Action"
+      },
+      {
+        "id": "h-9-2",
+        "text": "3. Lambdas"
+      },
+      {
+        "id": "h-9-3",
+        "text": "4. Closures — Powerful And Occasionally Surprising"
+      },
+      {
+        "id": "h-9-4",
+        "text": "5. Where You Will Actually Meet These"
+      },
+      {
+        "id": "h-9-5",
+        "text": "6. Events"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "label": "Project — MiniBank",
+    "section": "week1",
+    "badge": "★",
+    "tag": "Project",
+    "title": "Week 1 Project — MiniBank",
+    "subtitle": "One console application that uses everything from Week 1. Build it without looking anything up first; note every hesitation, then go back and study only what you noted.",
+    "steps": [
+      "Domain",
+      "Operations",
+      "Persistence",
+      "Constraints",
+      "Review"
+    ],
+    "selfCheck": [
+      "Which of your domain types are records and which are classes, and why?",
+      "How did you guarantee a balance can never go negative?",
+      "How did you make a transfer all-or-nothing?",
+      "Where does validation live, and could any path bypass it?",
+      "Can your transfer logic be tested without the console or the file system?",
+      "What is on your gap log?"
+    ],
+    "headings": [
+      {
+        "id": "h-10-0",
+        "text": "1. What You Are Building"
+      },
+      {
+        "id": "h-10-1",
+        "text": "2. The Domain"
+      },
+      {
+        "id": "h-10-2",
+        "text": "3. Rules To Enforce"
+      },
+      {
+        "id": "h-10-3",
+        "text": "4. What Each Part Exercises"
+      },
+      {
+        "id": "h-10-4",
+        "text": "5. Add One Hard Constraint"
+      },
+      {
+        "id": "h-10-5",
+        "text": "6. Then Review It"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "label": "ASP.NET Core Basics",
+    "section": "week2",
+    "badge": "9",
+    "tag": "Day 9",
+    "title": "ASP.NET Core Fundamentals",
+    "subtitle": "Three ideas carry the whole framework: dependency injection, the middleware pipeline, and configuration. Learn these properly and everything else in Week 2 is a detail.",
+    "steps": [
+      "Host & startup",
+      "Dependency injection",
+      "Lifetimes",
+      "Middleware",
+      "Configuration"
+    ],
+    "selfCheck": [
+      "What is the difference between the two phases in Program.cs, before and after Build()?",
+      "Name the three service lifetimes and when you would use each.",
+      "What is a captive dependency and what symptoms does it cause?",
+      "What happens if middleware does not call next?",
+      "Why does middleware order matter — give a concrete failure.",
+      "Why prefer the options pattern over reading IConfiguration directly?"
+    ],
+    "headings": [
+      {
+        "id": "h-11-0",
+        "text": "1. The Whole Startup, In One File"
+      },
+      {
+        "id": "h-11-1",
+        "text": "2. Dependency Injection Is Built In"
+      },
+      {
+        "id": "h-11-2",
+        "text": "3. The Three Lifetimes"
+      },
+      {
+        "id": "h-11-3",
+        "text": "4. Middleware — The Request Pipeline"
+      },
+      {
+        "id": "h-11-4",
+        "text": "5. Configuration"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "label": "Building REST APIs",
+    "section": "week2",
+    "badge": "10",
+    "tag": "Day 10",
+    "title": "Building REST APIs",
+    "subtitle": "Controllers, minimal APIs, model binding, validation and error handling. The mechanics are easy; the judgement is in status codes, DTO boundaries and giving clients errors they can act on.",
+    "steps": [
+      "Controllers",
+      "Minimal APIs",
+      "Status codes",
+      "DTOs",
+      "Validation",
+      "Errors"
+    ],
+    "selfCheck": [
+      "What does [ApiController] do for you automatically?",
+      "What is the difference between 401 and 403?",
+      "Give three reasons never to bind a request directly to an EF entity.",
+      "What is over-posting?",
+      "Where do data annotations stop being appropriate, and what takes over?",
+      "Why should a 500 response never include the exception message?"
+    ],
+    "headings": [
+      {
+        "id": "h-12-0",
+        "text": "1. A Controller"
+      },
+      {
+        "id": "h-12-1",
+        "text": "2. Minimal APIs"
+      },
+      {
+        "id": "h-12-2",
+        "text": "3. Status Codes That Matter"
+      },
+      {
+        "id": "h-12-3",
+        "text": "4. DTOs — Never Expose Your Entities"
+      },
+      {
+        "id": "h-12-4",
+        "text": "5. Validation"
+      },
+      {
+        "id": "h-12-5",
+        "text": "6. Error Handling In One Place"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "label": "Calling External APIs",
+    "section": "week2",
+    "badge": "◇",
+    "tag": "Extension",
+    "title": "Calling External APIs — HttpClient & Resilience",
+    "subtitle": "Digital Operations work means your service is rarely the end of the line — it calls a core banking system, a payment processor, a KYC provider. None of those are guaranteed to be up, fast, or idempotent-friendly on your behalf. This page is about surviving that.",
+    "steps": [
+      "IHttpClientFactory",
+      "Typed clients",
+      "Retries",
+      "Circuit breaker",
+      "Idempotency"
+    ],
+    "selfCheck": [
+      "Why is creating a new HttpClient per request a problem, and what fixes it?",
+      "Why is retrying a POST more dangerous than retrying a GET?",
+      "What does an idempotency key actually protect against?",
+      "What does a circuit breaker do that a retry policy alone does not?",
+      "What happens if you pass CancellationToken.None into an outbound call instead of the request's own token?"
+    ],
+    "headings": [
+      {
+        "id": "h-20-0",
+        "text": "1. Never new HttpClient() Per Call"
+      },
+      {
+        "id": "h-20-1",
+        "text": "2. Retries & Circuit Breakers With Polly"
+      },
+      {
+        "id": "h-20-2",
+        "text": "3. Idempotency Keys"
+      },
+      {
+        "id": "h-20-3",
+        "text": "4. Timeouts, Cancellation, and Propagating Both"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "label": "Entity Framework Core",
+    "section": "week2",
+    "badge": "11",
+    "tag": "Day 11",
+    "title": "Entity Framework Core",
+    "subtitle": "An ORM that writes your SQL. Enormously productive, and it will happily generate something catastrophic if you do not understand change tracking, deferred execution and the N+1 problem.",
+    "steps": [
+      "DbContext",
+      "Entities",
+      "Queries",
+      "Change tracking",
+      "N+1",
+      "Migrations"
+    ],
+    "selfCheck": [
+      "What does it mean that a DbContext is a unit of work?",
+      "Why must a DbContext be Scoped and never Singleton?",
+      "What is the difference between filtering before and after ToListAsync?",
+      "What is the N+1 problem and how do you detect it?",
+      "When would you use AsNoTracking?",
+      "Name two situations where you should not use EF."
+    ],
+    "headings": [
+      {
+        "id": "h-13-0",
+        "text": "1. The DbContext"
+      },
+      {
+        "id": "h-13-1",
+        "text": "2. A DbContext Is A Unit Of Work"
+      },
+      {
+        "id": "h-13-2",
+        "text": "3. Querying"
+      },
+      {
+        "id": "h-13-3",
+        "text": "4. The N+1 Problem"
+      },
+      {
+        "id": "h-13-4",
+        "text": "5. Migrations"
+      },
+      {
+        "id": "h-13-5",
+        "text": "6. When Not To Use EF"
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "label": "Background Jobs",
+    "section": "week2",
+    "badge": "◇",
+    "tag": "Extension",
+    "title": "Background Jobs & Hosted Services",
+    "subtitle": "Statement reconciliation, nightly reports, retrying failed webhook deliveries, expiring stale sessions — Digital Operations work is full of things that run on a schedule rather than in response to a request. This is where they live.",
+    "steps": [
+      "BackgroundService",
+      "Scoped services inside it",
+      "Scheduling",
+      "Idempotency",
+      "Observability"
+    ],
+    "selfCheck": [
+      "What lifetime does a BackgroundService effectively have, and why does that matter for DbContext?",
+      "How do you safely get a Scoped service inside a BackgroundService?",
+      "Why must a job be safe to run twice on the same data?",
+      "When would you reach for Quartz.NET or Hangfire instead of a plain BackgroundService?",
+      "Why log successful runs, not only failed ones?"
+    ],
+    "headings": [
+      {
+        "id": "h-21-0",
+        "text": "1. The Shape Of A Hosted Service"
+      },
+      {
+        "id": "h-21-1",
+        "text": "2. Why You Cannot Just Inject AppDbContext Here"
+      },
+      {
+        "id": "h-21-2",
+        "text": "3. Scheduling Beyond A Fixed Interval"
+      },
+      {
+        "id": "h-21-3",
+        "text": "4. Make Every Run Safe To Repeat"
+      },
+      {
+        "id": "h-21-4",
+        "text": "5. Logging Every Run, Not Just Failures"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "label": "Authentication & JWT",
+    "section": "week2",
+    "badge": "12",
+    "tag": "Day 12",
+    "title": "Authentication & Authorization",
+    "subtitle": "Who you are, and what you may do. Two separate questions that people conflate constantly — and a token format that is signed, not encrypted, which is the detail that causes most of the security mistakes.",
+    "steps": [
+      "Authn vs authz",
+      "JWT structure",
+      "Issuing",
+      "Validating",
+      "Policies",
+      "Passwords"
+    ],
+    "selfCheck": [
+      "What is the difference between authentication and authorization, and which status code goes with each?",
+      "Is a JWT encrypted? What follows from the answer?",
+      "Why can't you revoke a JWT, and what is the standard mitigation?",
+      "What does ValidateIssuerSigningKey = false allow an attacker to do?",
+      "Why prefer a policy over Roles = \"Admin\"?",
+      "Why are MD5 and SHA-256 wrong for passwords?"
+    ],
+    "headings": [
+      {
+        "id": "h-14-0",
+        "text": "1. Two Different Questions"
+      },
+      {
+        "id": "h-14-1",
+        "text": "2. What A JWT Actually Is"
+      },
+      {
+        "id": "h-14-2",
+        "text": "3. Issuing A Token"
+      },
+      {
+        "id": "h-14-3",
+        "text": "4. Validating It"
+      },
+      {
+        "id": "h-14-4",
+        "text": "5. Protecting Endpoints"
+      },
+      {
+        "id": "h-14-5",
+        "text": "6. Passwords"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "label": "Logging & Observability",
+    "section": "week2",
+    "badge": "13",
+    "tag": "Day 13",
+    "title": "Logging & Observability",
+    "subtitle": "When something fails at 2am, your logs are the entire investigation. This is the least glamorous page here and the one that most determines whether an incident takes ten minutes or three days.",
+    "steps": [
+      "ILogger",
+      "Levels",
+      "Structured logging",
+      "Scopes",
+      "What not to log",
+      "Health checks"
+    ],
+    "selfCheck": [
+      "Why does string interpolation in a log call defeat structured logging?",
+      "Are log placeholders matched by name or by position?",
+      "What problem does BeginScope solve?",
+      "Where does the exception go in a LogError call, and what happens if you pass ex.Message instead?",
+      "Name four things you must never write to a log.",
+      "Why should a liveness check not test the database?"
+    ],
+    "headings": [
+      {
+        "id": "h-15-0",
+        "text": "1. ILogger Is Already There"
+      },
+      {
+        "id": "h-15-1",
+        "text": "2. The Levels, And When Each Is Right"
+      },
+      {
+        "id": "h-15-2",
+        "text": "3. Structured Logging — Use The Template"
+      },
+      {
+        "id": "h-15-3",
+        "text": "4. Scopes — Correlating One Request"
+      },
+      {
+        "id": "h-15-4",
+        "text": "5. Logging Exceptions Properly"
+      },
+      {
+        "id": "h-15-5",
+        "text": "6. What You Must Never Log"
+      },
+      {
+        "id": "h-15-6",
+        "text": "7. Configuration"
+      },
+      {
+        "id": "h-15-7",
+        "text": "8. Logs, Metrics, Traces And Health"
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "label": "Testing",
+    "section": "week2",
+    "badge": "14",
+    "tag": "Day 14",
+    "title": "Testing with xUnit & Moq",
+    "subtitle": "Tests are not about proving code works. They are about being able to change it later without fear. That distinction decides what is worth testing and what is a waste of your afternoon.",
+    "steps": [
+      "xUnit",
+      "Arrange/Act/Assert",
+      "Theories",
+      "Moq",
+      "Integration tests",
+      "What to test"
+    ],
+    "selfCheck": [
+      "What is the difference between a Fact and a Theory?",
+      "Why does xUnit create a new test class instance per test?",
+      "Why should you not mock HttpClient or DbContext directly?",
+      "What does WebApplicationFactory give you that unit tests cannot?",
+      "What is the practical test for whether a test is coupled to implementation?",
+      "Why is coverage a poor target?"
+    ],
+    "headings": [
+      {
+        "id": "h-16-0",
+        "text": "1. A Test"
+      },
+      {
+        "id": "h-16-1",
+        "text": "2. Theories — One Test, Many Cases"
+      },
+      {
+        "id": "h-16-2",
+        "text": "3. Moq — Faking Dependencies"
+      },
+      {
+        "id": "h-16-3",
+        "text": "4. Integration Tests"
+      },
+      {
+        "id": "h-16-4",
+        "text": "5. What To Test, And What Not To"
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "label": "Project & Interview Sim",
+    "section": "week2",
+    "badge": "★",
+    "tag": "Project",
+    "title": "Week 2 Project & Interview Simulation",
+    "subtitle": "Turn MiniBank into a real API with a database, authentication, logging and tests. Then defend it out loud, which is a harder and more useful exercise than building it.",
+    "steps": [
+      "The build",
+      "Requirements",
+      "Hard constraint",
+      "Review",
+      "Interview"
+    ],
+    "selfCheck": [
+      "Why must MiniBank.Core not reference ASP.NET Core or EF Core?",
+      "Which hard constraint did you pick, and what did it teach you?",
+      "How many SQL queries does your busiest endpoint issue?",
+      "Can your test suite pass with no database present? If not, why not?",
+      "What is the weakest part of your code, and what would fixing it involve?",
+      "What did you get wrong while building it, and how did you find out?"
+    ],
+    "headings": [
+      {
+        "id": "h-17-0",
+        "text": "1. What You Are Building"
+      },
+      {
+        "id": "h-17-1",
+        "text": "2. Endpoints"
+      },
+      {
+        "id": "h-17-2",
+        "text": "3. Requirements Checklist"
+      },
+      {
+        "id": "h-17-3",
+        "text": "4. Pick One Hard Constraint"
+      },
+      {
+        "id": "h-17-4",
+        "text": "5. Review It Before You Call It Done"
+      },
+      {
+        "id": "h-17-5",
+        "text": "6. Interview Simulation"
+      },
+      {
+        "id": "h-17-6",
+        "text": "7. Then Keep Going"
+      }
+    ]
+  }
+]

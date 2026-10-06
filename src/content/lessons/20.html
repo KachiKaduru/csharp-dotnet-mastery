@@ -1,0 +1,66 @@
+<div class="recall"><div class="cl-title">Recall first — no notes</div>Why must a DbContext never be registered Singleton? What is the options pattern and why prefer it to reading IConfiguration directly?</div>
+<h2 id="h-20-0">1. Never <code>new HttpClient()</code> Per Call</h2>
+<p>It looks harmless and is a well-known production incident waiting to happen: each <code>HttpClient</code> holds its own socket pool, and disposing one does not release the underlying connection immediately — under load you exhaust available sockets and every outbound call starts failing.</p>
+<div class="code-label">register a typed client instead</div>
+<pre><code class="language-csharp">builder.Services.AddHttpClient&lt;CoreBankingClient&gt;(client =&gt;
+{
+    client.BaseAddress = new Uri(builder.Configuration["CoreBanking:BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+public class CoreBankingClient(HttpClient http)
+{
+    public async Task&lt;AccountDto?&gt; GetAccountAsync(string number, CancellationToken ct) =&gt;
+        await http.GetFromJsonAsync&lt;AccountDto&gt;($"/accounts/{number}", ct);
+}</code></pre>
+<p><code>AddHttpClient</code> hands socket lifetime management to the framework's <code>IHttpClientFactory</code>, and the typed client gets DI'd into whatever service needs it — same shape as any other constructor-injected dependency.</p>
+<h2 id="h-20-1">2. Retries &amp; Circuit Breakers With Polly</h2>
+<p>A transient network blip should not become a user-facing error, but retrying blindly can turn one slow dependency into a cascading outage. Polly gives you both halves.</p>
+<div class="code-label">wire resilience onto the typed client</div>
+<pre><code class="language-csharp">builder.Services.AddHttpClient&lt;CoreBankingClient&gt;(/* ... */)
+    .AddResilienceHandler("core-banking", b =&gt;
+    {
+        b.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            UseJitter = true                 // avoid every caller retrying in lockstep
+        });
+        b.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+        {
+            FailureRatio = 0.5,
+            SamplingDuration = TimeSpan.FromSeconds(30),
+            BreakDuration = TimeSpan.FromSeconds(15)
+        });
+    });</code></pre>
+<div class="callout danger">
+        <div class="cl-title">Only retry what is safe to retry</div>
+        A <code>GET</code> is naturally safe to retry. A <code>POST</code> that initiates a transfer is not — if the first
+        request actually succeeded and only the response was lost, a retry can <strong>double the transfer</strong>. Either avoid
+        retrying non-idempotent writes, or make the downstream call idempotent first (next section). This is one of the few places
+        where "just add retries" is actively dangerous instead of merely wasteful.
+      </div>
+<p>The circuit breaker matters just as much as the retry: once a dependency is failing consistently, stop hammering it and fail fast for a cooldown period. That protects the struggling dependency <em>and</em> keeps your own service responsive instead of every request queuing behind a timeout.</p>
+<h2 id="h-20-2">3. Idempotency Keys</h2>
+<p>The standard fix for "is it safe to retry this POST": the caller generates a unique key per logical operation and sends it on every attempt, including retries.</p>
+<pre><code class="language-csharp">var request = new HttpRequestMessage(HttpMethod.Post, "/transfers")
+{
+    Content = JsonContent.Create(transferRequest)
+};
+request.Headers.Add("Idempotency-Key", transferId.ToString());   // same key on every retry
+
+var response = await http.SendAsync(request, ct);</code></pre>
+<p>A well-built downstream service stores the key, and if it sees the same key twice, returns the original result instead of processing the transfer again. If you are the one building the receiving endpoint — which you will be, on this kind of team — implementing that check is your responsibility, not the caller's.</p>
+<h2 id="h-20-3">4. Timeouts, Cancellation, and Propagating Both</h2>
+<p>Every inbound request already carries a <code>CancellationToken</code> that fires if the client disconnects. Pass it all the way down, including into outbound calls:</p>
+<pre><code class="language-csharp">public async Task&lt;ActionResult&gt; Get(string number, CancellationToken ct)
+{
+    var account = await _coreBankingClient.GetAccountAsync(number, ct);   // not CancellationToken.None
+    return Ok(account);
+}</code></pre>
+<div class="callout warn">
+        <div class="cl-title">A forgotten token is an invisible resource leak</div>
+        Passing <code>CancellationToken.None</code> (or omitting it, which defaults to the same thing) means the outbound call
+        keeps running, and keeps holding a connection and a thread, even after the original client has given up and gone away.
+        Under load this is how a slow downstream dependency quietly degrades an otherwise healthy service.
+      </div>
